@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
+import type { Database } from "@/types/database";
+
 // The ONLY place the Supabase client is created. Every other file talks to
 // Supabase through the functions in src/services/*.ts.
 //
@@ -16,4 +18,5 @@ if (!supabaseUrl || !supabasePublishableKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabasePublishableKey);
+// <Database> = the generated types, so every query is type-checked against the real schema.
+export const supabase = createClient<Database>(supabaseUrl, supabasePublishableKey);

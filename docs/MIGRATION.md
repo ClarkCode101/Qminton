@@ -56,7 +56,7 @@ Cloudflare Pages auto-deploy from GitHub.
 
 ## Progress
 
-### ✅ Step 1: Repo + scaffold (done, NOT yet committed)
+### ✅ Step 1: Repo + scaffold (done, committed `45cd734`, pushed to `main`)
 - `web/` = Vite 8, React 19, TS strict, Tailwind 4 (`@tailwindcss/vite`), shadcn (radix-nova preset, `cn` package), React Router 7 (lazy routes), TanStack Query, RHF, Zod, supabase-js, Vitest + jsdom + Testing Library, oxlint.
 - `src/index.css`: shadcn tokens + old OrcaRally globals. Tailwind radius scale intentionally NOT overridden (keeps old look). Geist via `@fontsource-variable`.
 - `src/app/router.tsx` (routes above + 404), `src/app/providers.tsx` (QueryClient + Toast).
@@ -72,15 +72,46 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 `npm run build`, `npm run lint` all pass. `npm audit --omit=dev` = 0 vulnerabilities
 (the 7 "high" are dev-only, from the shadcn CLI).
 
+### ✅ Step 2: Schema + RLS + types (done, committed; owner pushes it themselves)
+- `supabase/migrations/20261011120000_initial_schema.sql` **applied** to project Qminton
+  (migration name `initial_schema`).
+- Supabase security advisor: 0 issues. Performance advisor: only "unused index" INFO (empty DB, expected).
+- RLS verified with a rolled-back SQL test (2 fake users): each owner sees only their own queue/players/
+  summary; direct INSERT by a logged-in user is blocked; anon SELECT is blocked; duplicate name
+  (case-insensitive) and negative court fee are rejected.
+- `web/src/types/database.ts` generated; `services/supabase.ts` now uses `createClient<Database>`.
+- build ✅, test ✅, lint ✅ (same 1 shadcn warning).
+- `web/.env.local` created (URL + publishable key; gitignored).
+- Changes vs the planned schema table below (my own refinements, explained to the owner):
+  - **No `courts` table.** Courts are `1..queues.court_count`; a court is occupied when a match with
+    `status='started'` has that `court_no` (unique per court). Timer uses `matches.started_at`.
+  - **No stored `billed_total`.** Totals come from the ledger via the `player_balances` view.
+  - **Players are soft-deleted** (`removed_at`) so removed players' debts stay visible (bug #2).
+    Name uniqueness only applies to active players.
+  - `match_players` carries `queue_id`; composite FKs `(queue_id, player_id)` / `(queue_id, match_id)`
+    stop cross-queue references.
+  - `queue_summaries` has both `total_billed` and `total_collected` (bug #8).
+  - Length limits: queue name 60, player name 40, note 300, payment reference 80.
+
 ### ❓ Waiting on the owner
-1. OK to **create a new free Supabase project "Qminton"** (region Singapore `ap-southeast-1`) via the Supabase MCP connection? The account's org is "TinapayCorner" and already has one project, **TinapayCorner-Qatar — a different app, never touch it**. Free tier allows 2 active projects. Owner sets the DB password in the dashboard.
-2. OK to **commit step 1 and push to `main`** of the Qminton repo?
+Nothing right now. Next: step 3 (Auth). Note: the app still shows placeholder pages
+("This screen is being migrated to Qminton.") until steps 3–4 port the real screens.
+
+### ✅ Git identity
+Repo-local config: `user.name ClarkCode101`, `user.email zclarence123@gmail.com` (global config is
+still DonClarko for other repos). Step 1 commit was re-authored and force-pushed with the owner's OK.
+**Commits must NOT have a `Co-Authored-By: Claude` trailer** (owner's rule): author is ClarkCode101 only.
+
+### ✅ Supabase project
+New account/org **ClarkCode101** (`imvhgzvjrgkuldajvzyn`), connector reconnected to it.
+Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, created 2026-10-11.
+(The old TinapayCorner org / TinapayCorner-Qatar project is a different app — never touch it.)
 
 ---
 
 ## Remaining order of work
 1. ~~Repo + scaffold~~
-2. Schema migrations + RLS + generated types (`supabase/migrations/*.sql`, `web/src/types/database.ts`)
+2. ~~Schema migrations + RLS + generated types (`supabase/migrations/*.sql`, `web/src/types/database.ts`)~~
 3. Auth (email / magic link) + login page + route guard
 4. Queues: list, create, delete, navbar switcher, landing page, home redirect to latest queue
 5. Players: add, bulk add, remove, pause/resume, move to bottom, Players tab
