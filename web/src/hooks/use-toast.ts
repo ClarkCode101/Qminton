@@ -1,0 +1,14 @@
+import { createContext, useContext } from "react";
+
+export type ToastType = "success" | "error" | "info";
+
+export interface ToastContextValue {
+  showToast: (message: string, type?: ToastType) => void;
+}
+
+export const ToastContext = createContext<ToastContextValue>({ showToast: () => {} });
+
+// Show a short notification. Use "\n" in the message for extra lines.
+export function useToast() {
+  return useContext(ToastContext);
+}
