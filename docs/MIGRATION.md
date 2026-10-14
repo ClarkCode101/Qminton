@@ -26,7 +26,7 @@ are irrelevant to Qminton except as reference.
 
 | # | Topic | Decision |
 |---|---|---|
-| 1 | Login | **Supabase Auth, email / magic link.** Each organizer owns their queues. Public display stays viewable by link without login. |
+| 1 | Login | **Supabase Auth, email + password, invite-only** (changed from magic link on 2026-10-12). Sign-ups are OFF; the owner creates each account in the Supabase dashboard. Each organizer owns their queues. Public display stays viewable by link without login. |
 | 2 | Where game logic runs | **Hybrid.** Team selection/scoring = pure TypeScript in the browser (unit-tested). Every state change = **Postgres RPC function** (one transaction, row lock on the queue, `version` check, re-validates eligibility). **No Edge Functions** (no secret key needed). |
 | 3 | Bugs found in audit | **Fix them during migration** (list below). Mention each behavior change when done. |
 | 4 | Repo | New repo `https://github.com/ClarkCode101/Qminton.git`, local `C:\Users\Clarence Zamora\Downloads\Qminton`. App in `web/`, DB in `supabase/` at repo root. |
@@ -93,9 +93,27 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
   - `queue_summaries` has both `total_billed` and `total_collected` (bug #8).
   - Length limits: queue name 60, player name 40, note 300, payment reference 80.
 
+### ✅ Step 3: Auth (done, owner tested OK on 2026-10-15, committed; owner pushes)
+- First version used magic links; owner tested it OK, then asked for **limited users** → switched to
+  **email + password, invite-only** (owner chose: add users in dashboard, password login).
+- `services/auth.ts` (signInWithPassword / getSession / onSessionChange / signOut), the only place using `supabase.auth`.
+  No sign-up and no "forgot password" in the app: the owner manages accounts in the dashboard.
+- `features/auth/`: `auth-context.ts` (`useAuth`), `auth-provider.tsx`, `require-auth.tsx` (route guard),
+  `sign-out-button.tsx` (temporarily on the placeholder Home page; moves to the navbar in step 4).
+- `pages/login-page.tsx`: email + password (RHF + Zod), readable errors (wrong credentials, rate limit).
+- `lib/auth-redirect.ts`: `?next=` handling (only same-app paths, no open redirect) + login Zod schema.
+- Router: `/login` and `/queue/:id/display` public; `/`, `/landing`, `/queue/:id` behind `RequireAuth`.
+- `test/setup.ts` now runs RTL `cleanup()` after each test. Tests: 15 passing.
+- Build warns main chunk > 500 kB (supabase-js now in the main bundle). Not an error; revisit in step 13.
+- **Owner's dashboard settings (no MCP tool for these):**
+  - Authentication → Sign In / Providers → **"Allow new users to sign up" = OFF** (required: otherwise
+    anyone could call the sign-up API directly with the public key).
+  - Authentication → Users → **Add user → Create new user** (email + password, **Auto Confirm User** on)
+    for each organizer.
+  - URL Configuration (Site URL `http://localhost:5173`) was set for magic links; harmless to keep.
+
 ### ❓ Waiting on the owner
-Nothing right now. Next: step 3 (Auth). Note: the app still shows placeholder pages
-("This screen is being migrated to Qminton.") until steps 3–4 port the real screens.
+OK to start step 4 (Queues)?
 
 ### ✅ Git identity
 Repo-local config: `user.name ClarkCode101`, `user.email zclarence123@gmail.com` (global config is
@@ -112,7 +130,7 @@ Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, create
 ## Remaining order of work
 1. ~~Repo + scaffold~~
 2. ~~Schema migrations + RLS + generated types (`supabase/migrations/*.sql`, `web/src/types/database.ts`)~~
-3. Auth (email / magic link) + login page + route guard
+3. ~~Auth (email + password, invite-only) + login page + route guard~~
 4. Queues: list, create, delete, navbar switcher, landing page, home redirect to latest queue
 5. Players: add, bulk add, remove, pause/resume, move to bottom, Players tab
 6. Settings: billing setup, game-mode change rule, **court resize** (tricky)

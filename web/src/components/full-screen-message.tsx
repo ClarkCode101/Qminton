@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 
 interface Props {
@@ -5,10 +6,11 @@ interface Props {
   message?: string;
   linkTo?: string;
   linkLabel?: string;
+  children?: ReactNode;
 }
 
 // Simple centered screen for loading, "not found" and placeholder states.
-export function FullScreenMessage({ title, message, linkTo, linkLabel }: Props) {
+export function FullScreenMessage({ title, message, linkTo, linkLabel, children }: Props) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,#eff6ff,#f8fbff_36%,#eef6ff)] p-4">
       <div className="max-w-md text-center">
@@ -22,6 +24,7 @@ export function FullScreenMessage({ title, message, linkTo, linkLabel }: Props) 
             {linkLabel}
           </Link>
         )}
+        {children}
       </div>
     </div>
   );
