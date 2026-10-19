@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterQueuesByName, getBusiestQueue, getLatestQueue, sortQueues } from "@/features/queues/queue-list";
+import { filterQueuesByName, getLatestQueue, sortQueues } from "@/features/queues/queue-list";
 import type { QueueSummary } from "@/services/queues";
 
 function makeQueue(name: string, updatedAt: string, playerCount = 0): QueueSummary {
@@ -43,9 +43,8 @@ describe("queue list helpers", () => {
     expect(filterQueuesByName(queues, "   ")).toHaveLength(3);
   });
 
-  it("finds the latest and the busiest queue (ties go to the latest)", () => {
+  it("finds the latest queue", () => {
     expect(getLatestQueue(queues)?.name).toBe("Alpha");
-    expect(getBusiestQueue(queues)?.name).toBe("Alpha");
     expect(getLatestQueue([])).toBeNull();
   });
 });

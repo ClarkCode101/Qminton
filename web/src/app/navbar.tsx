@@ -8,10 +8,11 @@ import { QueueSwitcherPanel } from "@/features/queues/queue-switcher-panel";
 import { getQueueDisplayPath, getQueuePath } from "@/lib/routes";
 
 interface Props {
-  // null on the empty home workspace (no queue yet).
+  // null on the empty home workspace and on the landing page (no queue open).
   queueId: string | null;
-  activeTab: NavTab;
-  onTabChange: (tab: NavTab) => void;
+  // Leave both out on pages without tabs (landing): a "All Queues" label shows instead.
+  activeTab?: NavTab;
+  onTabChange?: (tab: NavTab) => void;
 }
 
 const iconButtonClass = (isOpen: boolean) =>
@@ -152,19 +153,25 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
 
             <div className="min-w-0 flex-1 overflow-x-auto sm:flex-none">
               <div className="flex min-w-max items-center gap-1 rounded-full bg-slate-100 p-1">
-                {NAV_TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => onTabChange(tab.id)}
-                    aria-current={activeTab === tab.id ? "page" : undefined}
-                    className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all cursor-pointer ${
-                      activeTab === tab.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+                {activeTab && onTabChange ? (
+                  NAV_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => onTabChange(tab.id)}
+                      aria-current={activeTab === tab.id ? "page" : undefined}
+                      className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all cursor-pointer ${
+                        activeTab === tab.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))
+                ) : (
+                  <span aria-current="page" className="rounded-full bg-white px-3.5 py-1.5 text-sm font-semibold text-blue-600 shadow-sm">
+                    All Queues
+                  </span>
+                )}
               </div>
             </div>
 

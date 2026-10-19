@@ -25,13 +25,3 @@ export function filterQueuesByName(queues: QueueSummary[], searchQuery: string):
 export function getLatestQueue(queues: QueueSummary[]): QueueSummary | null {
   return sortQueues(queues, "latest")[0] ?? null;
 }
-
-// Most players; ties go to the most recently updated queue.
-export function getBusiestQueue(queues: QueueSummary[]): QueueSummary | null {
-  return (
-    [...queues].sort(
-      (left, right) =>
-        right.playerCount - left.playerCount || Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
-    )[0] ?? null
-  );
-}

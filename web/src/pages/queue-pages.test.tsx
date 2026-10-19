@@ -85,10 +85,23 @@ describe("queue pages", () => {
     listQueuesMock.mockResolvedValue([makeQueue()]);
     renderApp(routes, "/landing");
 
-    const card = (await screen.findByRole("heading", { name: "Saturday Session" })).closest("div.group");
+    const card = (await screen.findByRole("heading", { name: "Saturday Session" })).closest("article");
     expect(card).not.toBeNull();
     expect(within(card as HTMLElement).getByText("₱300")).toBeInTheDocument();
     expect(within(card as HTMLElement).queryByText("₱900")).not.toBeInTheDocument();
+  });
+
+  it("landing has the navbar and totals across all queues", async () => {
+    listQueuesMock.mockResolvedValue([
+      makeQueue({ id: "a", playerCount: 6, totalCollected: 300 }),
+      makeQueue({ id: "b", name: "Friday", playerCount: 4, totalCollected: 1000 }),
+    ]);
+    renderApp(routes, "/landing");
+
+    expect(await screen.findByText("₱1,300")).toBeInTheDocument();
+    expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
+    expect(screen.getByText("All Queues")).toBeInTheDocument();
   });
 
   it("creates a queue and opens it", async () => {
@@ -97,7 +110,7 @@ describe("queue pages", () => {
     getQueueMock.mockResolvedValue(null);
     const { router } = renderApp(routes, "/landing");
 
-    fireEvent.click(await screen.findByRole("button", { name: "+ Launch New Queue" }));
+    fireEvent.click(await screen.findByRole("button", { name: "+ New Queue" }));
     fireEvent.change(screen.getByLabelText("Queue Name"), { target: { value: " Friday Night " } });
     fireEvent.click(screen.getByRole("button", { name: /Singles/ }));
     fireEvent.change(screen.getByLabelText("Court Fee per Player"), { target: { value: "60" } });
@@ -119,7 +132,7 @@ describe("queue pages", () => {
     listQueuesMock.mockResolvedValue([]);
     renderApp(routes, "/landing");
 
-    fireEvent.click(await screen.findByRole("button", { name: "+ Launch New Queue" }));
+    fireEvent.click(await screen.findByRole("button", { name: "+ New Queue" }));
     fireEvent.change(screen.getByLabelText("Queue Name"), { target: { value: "Friday" } });
     fireEvent.change(screen.getByLabelText("Shuttle Rate per Game"), { target: { value: "12.5" } });
     await act(async () => {
@@ -137,7 +150,7 @@ describe("queue pages", () => {
     });
     renderApp(routes, "/landing");
 
-    fireEvent.click(await screen.findByRole("button", { name: "+ Launch New Queue" }));
+    fireEvent.click(await screen.findByRole("button", { name: "+ New Queue" }));
     fireEvent.change(screen.getByLabelText("Queue Name"), { target: { value: "Friday" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Create Queue" }));
@@ -159,7 +172,7 @@ describe("queue pages", () => {
     });
 
     expect(deleteQueueMock).toHaveBeenCalledWith("q1");
-    expect(await screen.findByText("No boards on deck yet.")).toBeInTheDocument();
+    expect(await screen.findByText("No queues yet")).toBeInTheDocument();
   });
 
   it("queue page says 'not found' for a queue you can't see", async () => {

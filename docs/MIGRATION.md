@@ -139,8 +139,21 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Owner decided to KEEP the landing page but wants it **redesigned** (exception to "keep the old look"
-for `/landing` only). Waiting on design direction.
+Owner asked for a **login page redesign + a Qminton logo**. Waiting on design direction.
+
+### ✅ Landing redesign (owner request 2026-10-19; owner approved, committed; owner pushes)
+Owner kept `/landing` but asked for a redesign (exception to "keep the old look", landing only).
+Chosen: **card grid**; complaints fixed: too much text, too spacious, didn't match other pages, no navbar.
+- One white panel like the Courts screen: "Your Queues" header, stat chips (Queues / Players /
+  Collected), "+ New Queue"; search + Latest/A-Z bar; 1/2/3-column grid of compact cards
+  (mode badge, last update, name, players, ₱ collected, Open + trash icon).
+- Removed: hero text, "Session Overview" panel, "Latest Queue" / "Most Players" stats,
+  "Continue …" button (Home already opens the latest queue). `getBusiestQueue` deleted.
+- Navbar now on landing; `activeTab` / `onTabChange` are optional and an "All Queues" pill shows
+  when there are no tabs.
+- After the owner's screenshot (big empty gap under a short panel): the panel now fills the screen
+  height down to the navbar, like the Courts screen; only the card grid scrolls inside it.
+- Tests: 40 passing.
 
 ### ✅ Git identity
 Repo-local config: `user.name ClarkCode101`, `user.email zclarence123@gmail.com` (global config is
