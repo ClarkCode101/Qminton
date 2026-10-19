@@ -54,6 +54,18 @@ describe("LoginPage", () => {
     expect(signInMock).toHaveBeenCalledWith("juan@example.com", " secret ");
   });
 
+  it("can show and hide the password", () => {
+    renderLogin();
+    const passwordInput = screen.getByLabelText("Password");
+    expect(passwordInput).toHaveAttribute("type", "password");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+    expect(passwordInput).toHaveAttribute("type", "text");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(passwordInput).toHaveAttribute("type", "password");
+  });
+
   it("shows readable errors for missing fields and sends nothing", async () => {
     renderLogin();
 
