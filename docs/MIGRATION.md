@@ -112,8 +112,35 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
     for each organizer.
   - URL Configuration (Site URL `http://localhost:5173`) was set for magic links; harmless to keep.
 
+### ✅ Step 4: Queues (done, owner tested OK on 2026-10-19, committed; owner pushes)
+- DB: `supabase/migrations/20261015120000_queue_rpcs.sql` → `create_queue`, `delete_queue`
+  (security definer, `search_path=''`, check `auth.uid()`, P0001 errors with readable messages,
+  EXECUTE only for `authenticated`). **Applied by the owner in the SQL Editor** (the MCP
+  `apply_migration` call was auto-declined twice), so it is NOT in Supabase's migration history
+  (`list_migrations` shows only `initial_schema`). Verified with a rolled-back test: create trims name,
+  defaults to 2 courts, rejects blank name / negative fee; another user's delete → "Queue not found";
+  anon blocked. Types regenerated.
+- Advisor WARN "authenticated can execute SECURITY DEFINER function": intentional (decision #2).
+  Advisor WARN "leaked password protection": Auth setting, owner's choice.
+- `services/queues.ts` (listQueues from `queue_summaries`, getQueue, createQueue, deleteQueue) +
+  `services/errors.ts` (`toUserMessage`: show P0001 messages, otherwise a friendly fallback).
+- `features/queues/`: `use-queues.ts` (TanStack Query), `queue-form-schema.ts` (Zod: whole pesos,
+  0–100,000, empty = 0), `queue-list.ts` (sort/filter/latest/busiest), `new-queue-modal.tsx`,
+  `queue-dialogs.tsx` (CreateQueueDialog / DeleteQueueDialog: toast on error, form stays open),
+  `queue-switcher-panel.tsx`, `queue-deck-card.tsx`, `empty-workspace.tsx`.
+- `features/courts/`: `court-view.ts` (CourtView, `formatElapsed` from timestamptz), `courts-grid.tsx` (ported).
+- `app/navbar.tsx` + `app/nav-tabs.ts`: queue list popup, tabs, shortcuts (Landing, Display, **Log out**).
+  Escape / outside click closes popups. `features/auth/sign-out-button.tsx` replaced by `use-sign-out.ts`.
+- `components/confirm-action-modal.tsx` (ported, + Escape, role=alertdialog), `components/load-error.tsx`.
+- Pages: `/` (redirect to latest queue or empty workspace), `/landing` (ported), `/queue/:id`
+  (navbar + queue name placeholder; "Queue not found" when missing / not yours; retry on errors).
+- Behavior changes: billing inputs are text + `inputMode=numeric` (was `type=number`) so decimals
+  are caught; errors shown under fields instead of a toast; logo text "Qminton" instead of "OrcaRally".
+- Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
+
 ### ❓ Waiting on the owner
-OK to start step 4 (Queues)?
+Owner decided to KEEP the landing page but wants it **redesigned** (exception to "keep the old look"
+for `/landing` only). Waiting on design direction.
 
 ### ✅ Git identity
 Repo-local config: `user.name ClarkCode101`, `user.email zclarence123@gmail.com` (global config is
@@ -131,7 +158,7 @@ Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, create
 1. ~~Repo + scaffold~~
 2. ~~Schema migrations + RLS + generated types (`supabase/migrations/*.sql`, `web/src/types/database.ts`)~~
 3. ~~Auth (email + password, invite-only) + login page + route guard~~
-4. Queues: list, create, delete, navbar switcher, landing page, home redirect to latest queue
+4. ~~Queues: list, create, delete, navbar switcher, landing page, home redirect to latest queue~~
 5. Players: add, bulk add, remove, pause/resume, move to bottom, Players tab
 6. Settings: billing setup, game-mode change rule, **court resize** (tricky)
 7. Matchmaking: TS scorer + tests ported from pytest (seeded RNG), start/queue match RPC, Up Next, cancel queued match

@@ -437,7 +437,16 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      create_queue: {
+        Args: {
+          p_court_fee: number
+          p_game_mode: Database["public"]["Enums"]["game_mode"]
+          p_game_rate: number
+          p_name: string
+        }
+        Returns: string
+      }
+      delete_queue: { Args: { p_queue_id: string }; Returns: undefined }
     }
     Enums: {
       game_mode: "singles" | "doubles"
