@@ -139,7 +139,33 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Nothing. Next: step 5 (Players). Show the SQL to the owner before applying.
+Step 6 in progress.
+
+### ✅ Step 5: Players (SQL applied via MCP as `player_rpcs`; owner OK 2026-10-20; committed; owner pushes)
+- DB `20261020120000_player_rpcs.sql`: `private` schema (no API access) with helpers
+  `lock_owned_queue` (row lock + owner check + optional `p_expected_version`), `touch_queue`
+  (version+1, updated_at), `reindex_players`, `get_active_player`, `require_player_editable`.
+  Public RPCs: `add_players(queue, jsonb, skip_duplicates)` (single = errors, bulk = skips blanks/dups;
+  bills court fee "Initial court fee" when > 0; max 100 per call; 40-char names),
+  `remove_player` (soft delete + reindex), `set_player_paused`, `move_player_to_bottom`.
+  Dry-run (begin…rollback) on the real project: all checks passed (dup/blank/bad skill/long name
+  rejected, bulk skips dups incl. case and within the list, court fees billed, move/reindex order,
+  playing player can't be removed, removed player's balance still in `player_balances`, re-adding a
+  removed name works, other owner → "Queue not found", anon blocked).
+- `services/players.ts`; `features/players/`: `player-status.ts` (status, filters, sort, counts,
+  skill labels), `bulk-names.ts` (strip numbering/bullets + **dedupe case-insensitively**),
+  `use-players.ts` (queries + mutations with old toasts), `skill-picker.tsx`, `add-player-modal.tsx`
+  (one markup: modal on desktop, bottom sheet on phones), `player-card.tsx` (flip card / expanded),
+  `player-list-panel.tsx` (old QueueCard), `player-stats-table.tsx`.
+- `features/courts/courts-tab.tsx`: Courts tab layout with live players sidebar (hide / expand overlay);
+  courts shown as available; court count is display-only until step 6.
+- `database.ts`: regenerated after applying. Security advisor: only the known intentional
+  "authenticated can execute SECURITY DEFINER" warnings (now 6 functions) + leaked-password setting.
+- Behavior changes: skill label "Advanced" everywhere (old mixed "Advance"/"Advanced"); Players tab
+  column "Total Paid" → **"Total Billed"** (it always showed the billed amount); its Remove button is
+  disabled for players on court / up next (old showed an error after clicking); bulk toast also says how
+  many were skipped; name errors shown under the field.
+- Tests: 63 passing.
 
 ### ✅ Logo + login redesign (owner request 2026-10-19; approved, committed; owner pushes)
 Owner chose: login = **card over a badminton court**; logo also as **favicon** and in the **landing header**.
@@ -209,7 +235,7 @@ Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, create
 2. ~~Schema migrations + RLS + generated types (`supabase/migrations/*.sql`, `web/src/types/database.ts`)~~
 3. ~~Auth (email + password, invite-only) + login page + route guard~~
 4. ~~Queues: list, create, delete, navbar switcher, landing page, home redirect to latest queue~~
-5. Players: add, bulk add, remove, pause/resume, move to bottom, Players tab
+5. ~~Players: add, bulk add, remove, pause/resume, move to bottom, Players tab~~
 6. Settings: billing setup, game-mode change rule, **court resize** (tricky)
 7. Matchmaking: TS scorer + tests ported from pytest (seeded RNG), start/queue match RPC, Up Next, cancel queued match
 8. Finish game + rest logic + auto-start next pending; reset matchmaking

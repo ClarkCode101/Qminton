@@ -437,6 +437,34 @@ export type Database = {
       }
     }
     Functions: {
+      add_players: {
+        Args: {
+          p_players: Json
+          p_queue_id: string
+          p_skip_duplicates?: boolean
+        }
+        Returns: {
+          created_at: string
+          games_played: number
+          id: number
+          is_paused: boolean
+          is_playing: boolean
+          is_waiting_match: boolean
+          last_match_no: number
+          name: string
+          queue_id: string
+          queue_position: number
+          removed_at: string | null
+          rest_games_needed: number
+          skill: Database["public"]["Enums"]["skill_level"]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "players"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       create_queue: {
         Args: {
           p_court_fee: number
@@ -447,6 +475,38 @@ export type Database = {
         Returns: string
       }
       delete_queue: { Args: { p_queue_id: string }; Returns: undefined }
+      move_player_to_bottom: {
+        Args: { p_player_id: number; p_queue_id: string }
+        Returns: undefined
+      }
+      remove_player: {
+        Args: { p_player_id: number; p_queue_id: string }
+        Returns: undefined
+      }
+      set_player_paused: {
+        Args: { p_paused: boolean; p_player_id: number; p_queue_id: string }
+        Returns: {
+          created_at: string
+          games_played: number
+          id: number
+          is_paused: boolean
+          is_playing: boolean
+          is_waiting_match: boolean
+          last_match_no: number
+          name: string
+          queue_id: string
+          queue_position: number
+          removed_at: string | null
+          rest_games_needed: number
+          skill: Database["public"]["Enums"]["skill_level"]
+        }
+        SetofOptions: {
+          from: "*"
+          to: "players"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       game_mode: "singles" | "doubles"

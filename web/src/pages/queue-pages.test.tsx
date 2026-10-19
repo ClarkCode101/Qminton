@@ -16,6 +16,10 @@ vi.mock("@/services/queues", () => ({
   deleteQueue: vi.fn(),
 }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
+vi.mock("@/services/players", () => ({
+  listPlayers: vi.fn(async () => []),
+  listPlayerBilledTotals: vi.fn(async () => new Map()),
+}));
 
 const listQueuesMock = vi.mocked(listQueues);
 const getQueueMock = vi.mocked(getQueue);
