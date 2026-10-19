@@ -139,7 +139,44 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Owner asked for a **login page redesign + a Qminton logo**. Waiting on design direction.
+Nothing. Next: step 5 (Players). Show the SQL to the owner before applying.
+
+### ✅ Logo + login redesign (owner request 2026-10-19; approved, committed; owner pushes)
+Owner chose: login = **card over a badminton court**; logo also as **favicon** and in the **landing header**.
+Logo: tried "Q with shuttle tail", "shuttle only", "Q with shuttle inside", and a "Q with a flying
+shuttle" (owner's AI-generated concept, dark tile), then "a Q with a shuttle feel but no shuttle".
+After comparing all of them the owner went back to the **first design: white Q ring whose tail is a
+shuttlecock, on the blue gradient tile** (the enlarged-shuttle version) (2026-10-19). Login shows it at 56px.
+- `public/favicon.svg` (replaces Vite's default) and `components/qminton-logo.tsx`
+  (`QmintonMark`, `QmintonLogo` = mark + "Qminton" with a blue Q). Same drawing in both; keep in sync.
+  Gradient id made unique per copy (useId, letters/digits only).
+- `features/auth/court-backdrop.tsx`: full court (real 13.4 × 6.1 shape, same green/lines as court cards),
+  fits the screen; rotated upright on portrait screens.
+- Login card: centered logo, "Organizer Login", same form/logic/labels (tests unchanged).
+- Checked with headless Edge screenshots at 1280×800 and 520×1000.
+
+### ✅ Landing UX review fixes (owner asked for all 8, 2026-10-19; approved, committed; owner pushes)
+Constraint from owner: must not look AI-made, must stay consistent (no new gradients/emoji; reuse
+existing colors, radii, popup style).
+1. Whole card is the click target (link `::after` covers the card); solid blue "Open" buttons removed,
+   so "+ New Queue" is the only primary button.
+2. Card money line: "Collected ₱X" + status: "₱Y unpaid" (amber) / "All paid" (green) / "No charges yet".
+3. Contrast: card/search/loading grays slate-400 → slate-500; chip labels 10px → 11px.
+4. Relative dates: `formatRelativeDate` ("Just now", "5 min ago", "Today, 3:30 PM", "Yesterday, …",
+   "Mon, …", "Oct 19", "Oct 19, 2025"); full date in the `title` tooltip.
+5. Delete moved into a "⋯" menu (`queue-card-menu.tsx`, same popup style as the navbar panels).
+6. Navbar "All Queues" is now plain text, not a tab-looking pill.
+7. Stat chips: Queues / Collected / **Unpaid** (amber when > 0); "Players" removed (double-counts people).
+8. Search + sort only appear with 6+ queues (`SHOW_SEARCH_FROM`).
+- Tests: 48 passing (new `lib/format.test.ts`, landing card/menu/search tests updated).
+
+### ✅ Login UX review fixes (owner asked for all 3, 2026-10-19; approved, committed; owner pushes)
+1. Show/hide password (eye button inside the field, `aria-label` Show/Hide password) + test. Placeholder slate-500.
+2. Court lines on the login backdrop made fainter (outer 70%→45%, inner ~55%→30%, net 70%→35%).
+3. Favicon: tried a simplified small-size version (thicker ring, bigger shuttle, no thin lines) and
+   compared at 16/24/32/64px on light and dark tabs. It did NOT fix the "magnifying glass" look (that
+   comes from the ring + 45° tail shape itself) and lost the shuttle detail, so **the favicon is unchanged**.
+- Tests: 49 passing. Screenshot checked at 1280×800.
 
 ### ✅ Landing redesign (owner request 2026-10-19; owner approved, committed; owner pushes)
 Owner kept `/landing` but asked for a redesign (exception to "keep the old look", landing only).

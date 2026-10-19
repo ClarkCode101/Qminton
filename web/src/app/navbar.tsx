@@ -152,9 +152,9 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
             )}
 
             <div className="min-w-0 flex-1 overflow-x-auto sm:flex-none">
-              <div className="flex min-w-max items-center gap-1 rounded-full bg-slate-100 p-1">
-                {activeTab && onTabChange ? (
-                  NAV_TABS.map((tab) => (
+              {activeTab && onTabChange ? (
+                <div className="flex min-w-max items-center gap-1 rounded-full bg-slate-100 p-1">
+                  {NAV_TABS.map((tab) => (
                     <button
                       key={tab.id}
                       type="button"
@@ -166,13 +166,12 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
                     >
                       {tab.label}
                     </button>
-                  ))
-                ) : (
-                  <span aria-current="page" className="rounded-full bg-white px-3.5 py-1.5 text-sm font-semibold text-blue-600 shadow-sm">
-                    All Queues
-                  </span>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                // Plain page title, styled so it doesn't look like a tab you can tap.
+                <p className="px-3 text-center text-sm font-semibold text-slate-600">All Queues</p>
+              )}
             </div>
 
             <div className="relative shrink-0">

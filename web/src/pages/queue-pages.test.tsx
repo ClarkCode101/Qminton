@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HomePage } from "@/pages/home-page";
@@ -81,27 +81,60 @@ describe("queue pages", () => {
     expect(await screen.findByText("No active queue yet")).toBeInTheDocument();
   });
 
-  it("landing shows money actually collected, not total billed (old bug #8)", async () => {
+  it("landing card shows collected and unpaid, not total billed (old bug #8)", async () => {
     listQueuesMock.mockResolvedValue([makeQueue()]);
     renderApp(routes, "/landing");
 
     const card = (await screen.findByRole("heading", { name: "Saturday Session" })).closest("article");
     expect(card).not.toBeNull();
     expect(within(card as HTMLElement).getByText("₱300")).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText("₱600 unpaid")).toBeInTheDocument();
     expect(within(card as HTMLElement).queryByText("₱900")).not.toBeInTheDocument();
+  });
+
+  it("landing card says 'All paid' when nothing is owed", async () => {
+    listQueuesMock.mockResolvedValue([makeQueue({ totalBilled: 500, totalCollected: 500 })]);
+    renderApp(routes, "/landing");
+
+    expect(await screen.findByText("All paid")).toBeInTheDocument();
+  });
+
+  it("the whole landing card opens the queue", async () => {
+    listQueuesMock.mockResolvedValue([makeQueue()]);
+    getQueueMock.mockResolvedValue(null);
+    const { router } = renderApp(routes, "/landing");
+
+    fireEvent.click(await screen.findByRole("link", { name: "Saturday Session" }));
+    await screen.findByText("Queue not found");
+    expect(router.state.location.pathname).toBe("/queue/q1");
   });
 
   it("landing has the navbar and totals across all queues", async () => {
     listQueuesMock.mockResolvedValue([
-      makeQueue({ id: "a", playerCount: 6, totalCollected: 300 }),
-      makeQueue({ id: "b", name: "Friday", playerCount: 4, totalCollected: 1000 }),
+      makeQueue({ id: "a", totalBilled: 900, totalCollected: 300 }),
+      makeQueue({ id: "b", name: "Friday", totalBilled: 1200, totalCollected: 1000 }),
     ]);
     renderApp(routes, "/landing");
 
     expect(await screen.findByText("₱1,300")).toBeInTheDocument();
-    expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getByText("₱800")).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
     expect(screen.getByText("All Queues")).toBeInTheDocument();
+  });
+
+  it("only shows search and sort once there are 6 or more queues", async () => {
+    const five = Array.from({ length: 5 }, (_, index) => makeQueue({ id: `q${index}`, name: `Queue ${index}` }));
+    listQueuesMock.mockResolvedValueOnce(five);
+    renderApp(routes, "/landing");
+    await screen.findByText("Queue 0");
+    expect(screen.queryByRole("searchbox", { name: "Search queues" })).not.toBeInTheDocument();
+
+    cleanup();
+    listQueuesMock.mockResolvedValueOnce([...five, makeQueue({ id: "q5", name: "Queue 5" })]);
+    renderApp(routes, "/landing");
+    fireEvent.change(await screen.findByRole("searchbox", { name: "Search queues" }), { target: { value: "5" } });
+    expect(screen.getByText("Queue 5")).toBeInTheDocument();
+    expect(screen.queryByText("Queue 0")).not.toBeInTheDocument();
   });
 
   it("creates a queue and opens it", async () => {
@@ -165,7 +198,8 @@ describe("queue pages", () => {
     deleteQueueMock.mockResolvedValue();
     renderApp(routes, "/landing");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Delete Saturday Session" }));
+    fireEvent.click(await screen.findByRole("button", { name: "More actions for Saturday Session" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete queue" }));
     expect(screen.getByText('Delete "Saturday Session"? This cannot be undone.')).toBeInTheDocument();
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Delete Queue" }));
