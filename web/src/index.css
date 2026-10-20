@@ -40,7 +40,8 @@
   --app-background: #f0f7ff;
   --app-foreground: #1e293b;
   --app-bottom-nav-offset: 1rem;
-  --app-bottom-nav-height: 3.75rem;
+  /* Navbar buttons are 48px (icon + "Queues" / "More" label) + 8px padding top and bottom. */
+  --app-bottom-nav-height: 4.25rem;
   --app-bottom-nav-clearance: calc(
     var(--app-bottom-nav-height) + var(--app-bottom-nav-offset) + env(safe-area-inset-bottom, 0px)
   );

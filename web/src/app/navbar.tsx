@@ -16,20 +16,14 @@ interface Props {
   onTabChange?: (tab: NavTab) => void;
 }
 
+// Icon with its name under it ("Queues", "More"): clear on touch screens too,
+// where a hover label never shows.
 const iconButtonClass = (isOpen: boolean) =>
-  `group relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors cursor-pointer ${
+  `inline-flex h-12 w-12 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl border text-[11px] font-semibold leading-none transition-colors cursor-pointer sm:w-14 ${
     isOpen
       ? "border-sky-200 bg-sky-50 text-blue-600"
-      : "border-sky-100 bg-white text-slate-500 hover:border-sky-200 hover:text-blue-600"
+      : "border-transparent bg-white text-slate-500 hover:border-sky-100 hover:text-blue-600"
   }`;
-
-function Tooltip({ children }: { children: ReactNode }) {
-  return (
-    <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-950 px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
-      {children}
-    </span>
-  );
-}
 
 function ShortcutIcon({ children }: { children: ReactNode }) {
   return (
@@ -45,7 +39,7 @@ function ShortcutText({ title, subtitle }: { title: string; subtitle: string }) 
   return (
     <span className="min-w-0 flex-1">
       <span className="block">{title}</span>
-      <span className="mt-0.5 block text-xs font-medium text-slate-400">{subtitle}</span>
+      <span className="mt-0.5 block text-xs font-medium text-slate-500">{subtitle}</span>
     </span>
   );
 }
@@ -137,14 +131,14 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
                 setShowQueueList((current) => !current);
               }}
               className={iconButtonClass(showQueueList)}
-              aria-label="Show queue list"
+              aria-label="Queues: show queue list"
               aria-expanded={showQueueList}
               aria-haspopup="menu"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h11.25M8.25 12h11.25M8.25 17.25h11.25M4.5 6.75h.008v.008H4.5V6.75ZM4.5 12h.008v.008H4.5V12ZM4.5 17.25h.008v.008H4.5v-.008Z" />
               </svg>
-              <Tooltip>Queue List</Tooltip>
+              <span aria-hidden="true">Queues</span>
             </button>
 
             {showQueueList && (
@@ -165,7 +159,7 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
                       type="button"
                       onClick={() => onTabChange(tab.id)}
                       aria-current={activeTab === tab.id ? "page" : undefined}
-                      className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-all cursor-pointer ${
+                      className={`rounded-full px-2.5 py-1.5 text-sm font-semibold transition-all cursor-pointer sm:px-3.5 ${
                         activeTab === tab.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
@@ -187,20 +181,23 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
                   setShowShortcuts((current) => !current);
                 }}
                 className={iconButtonClass(showShortcuts)}
-                aria-label="Open shortcuts"
+                aria-label="More: open shortcuts"
                 aria-expanded={showShortcuts}
                 aria-haspopup="menu"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.25h4.5v4.5h-4.5v-4.5Zm9 0h4.5v4.5h-4.5v-4.5Zm-9 9h4.5v4.5h-4.5v-4.5Zm9 0h4.5v4.5h-4.5v-4.5Z" />
+                {/* "⋯" = more options, the same symbol as the other menus in the app. */}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <circle cx="4.5" cy="10" r="1.6" />
+                  <circle cx="10" cy="10" r="1.6" />
+                  <circle cx="15.5" cy="10" r="1.6" />
                 </svg>
-                <Tooltip>Shortcuts</Tooltip>
+                <span aria-hidden="true">More</span>
               </button>
 
               {showShortcuts && (
                 <div className="queue-list-panel absolute bottom-[calc(100%+0.75rem)] right-0 z-50 w-56 overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-[0_20px_40px_rgba(14,116,144,0.16)]">
                   <div className="border-b border-sky-100 px-4 py-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">Shortcuts</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">More</p>
                     <p className="mt-0.5 text-[13px] leading-5 text-slate-500">Open another view for this workspace.</p>
                   </div>
 
