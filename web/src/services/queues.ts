@@ -76,6 +76,27 @@ export async function createQueue(input: NewQueueInput): Promise<string> {
   return data;
 }
 
+export interface QueueSettingsUpdate {
+  gameMode?: GameMode;
+  courtFee?: number;
+  gameRate?: number;
+  courtCount?: number;
+}
+
+// Changes only the settings you pass. Shrinking the court count sends matches on
+// removed courts back to the front of Up Next (see the step-6 migration).
+export async function updateQueueSettings(queueId: string, settings: QueueSettingsUpdate): Promise<Queue> {
+  const { data, error } = await supabase.rpc("update_queue_settings", {
+    p_queue_id: queueId,
+    p_game_mode: settings.gameMode,
+    p_court_fee: settings.courtFee,
+    p_game_rate: settings.gameRate,
+    p_court_count: settings.courtCount,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteQueue(queueId: string): Promise<void> {
   const { error } = await supabase.rpc("delete_queue", { p_queue_id: queueId });
   if (error) throw error;

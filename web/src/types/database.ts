@@ -507,6 +507,34 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_queue_settings: {
+        Args: {
+          p_court_count?: number
+          p_court_fee?: number
+          p_game_mode?: Database["public"]["Enums"]["game_mode"]
+          p_game_rate?: number
+          p_queue_id: string
+        }
+        Returns: {
+          court_count: number
+          court_fee: number
+          created_at: string
+          game_mode: Database["public"]["Enums"]["game_mode"]
+          game_rate: number
+          id: string
+          match_no: number
+          name: string
+          owner_id: string
+          updated_at: string
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "queues"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       game_mode: "singles" | "doubles"

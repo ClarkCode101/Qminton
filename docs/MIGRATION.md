@@ -139,7 +139,22 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Step 6 in progress.
+Step 7 in progress.
+
+### ✅ Step 6: Settings (SQL applied via MCP as `queue_settings`; owner OK 2026-10-20; committed; owner pushes)
+- DB `update_queue_settings(queue, game_mode?, court_fee?, game_rate?, court_count?)` (null = unchanged):
+  game mode change refused while any match is started/queued (old rule; the old UI never exposed it,
+  so no new button); fee/rate ≥ 0; courts 1–6; **shrink** moves started matches on removed courts to
+  the FRONT of Up Next (court order, `resume_existing`, keeps match_no, players → Up Next, player order =
+  free + displaced + already-waiting); bumps version. Dry-run with simulated matches matched the old
+  behavior exactly.
+- **Grow → auto-start queued matches is NOT done yet**: it needs the start-match logic from step 7.
+  Step 7 must add `private.fill_free_courts` and call it from `update_queue_settings` when growing.
+- Frontend: `updateQueueSettings` service + `useUpdateQueueSettings`; Courts tab court count +/-
+  ("Courts updated" toast, readable error = old bug #7); Billing tab (temporary) with the ported
+  **Billing setup** dialog (`billing-modal.tsx`, `billing-setup-form.tsx`, whole pesos via Zod).
+  Formula text says "Total billed" (was "Total paid", same rename as the Players tab).
+- Tests: 67 passing.
 
 ### ✅ Step 5: Players (SQL applied via MCP as `player_rpcs`; owner OK 2026-10-20; committed; owner pushes)
 - DB `20261020120000_player_rpcs.sql`: `private` schema (no API access) with helpers
@@ -236,7 +251,7 @@ Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, create
 3. ~~Auth (email + password, invite-only) + login page + route guard~~
 4. ~~Queues: list, create, delete, navbar switcher, landing page, home redirect to latest queue~~
 5. ~~Players: add, bulk add, remove, pause/resume, move to bottom, Players tab~~
-6. Settings: billing setup, game-mode change rule, **court resize** (tricky)
+6. ~~Settings: billing setup, game-mode change rule, **court resize** (tricky)~~ (grow → auto-start finished in step 7)
 7. Matchmaking: TS scorer + tests ported from pytest (seeded RNG), start/queue match RPC, Up Next, cancel queued match
 8. Finish game + rest logic + auto-start next pending; reset matchmaking
 9. Match log

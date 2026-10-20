@@ -6,22 +6,27 @@ import { Navbar } from "@/app/navbar";
 import { ConfirmActionModal } from "@/components/confirm-action-modal";
 import { FullScreenMessage } from "@/components/full-screen-message";
 import { LoadError } from "@/components/load-error";
+import { BillingTab } from "@/features/billing/billing-tab";
 import { CourtsTab } from "@/features/courts/courts-tab";
 import { AddPlayerModal } from "@/features/players/add-player-modal";
 import { PlayerStatsTable } from "@/features/players/player-stats-table";
 import { usePlayerActions, usePlayerBilledTotals, usePlayers } from "@/features/players/use-players";
-import { useQueue } from "@/features/queues/use-queues";
+import { useQueue, useUpdateQueueSettings } from "@/features/queues/use-queues";
+import { useToast } from "@/hooks/use-toast";
+import { toUserMessage } from "@/services/errors";
 import type { Player } from "@/services/players";
 
 // Organizer view of one queue (ported from the old app/queue/page.tsx).
-// Step 5: Courts tab layout + live players sidebar, Players tab table.
-// Billing arrives in step 10.
+// So far: Courts tab layout + players sidebar + court count (steps 5–6),
+// Players tab table, Billing setup. The rest of Billing arrives in step 10.
 export function QueuePage() {
   const { queueId = "" } = useParams();
   const queueQuery = useQueue(queueId);
   const playersQuery = usePlayers(queueId);
   const billedQuery = usePlayerBilledTotals(queueId);
   const actions = usePlayerActions(queueId);
+  const updateSettings = useUpdateQueueSettings(queueId);
+  const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<NavTab>("courts");
   const [showAddPlayer, setShowAddPlayer] = useState(false);
@@ -63,6 +68,26 @@ export function QueuePage() {
   }
 
   const players = playersQuery.data ?? [];
+
+  // Old bug #7: a failed court count change used to be an unhandled error.
+  const changeCourtCount = async (courtCount: number) => {
+    try {
+      await updateSettings.mutateAsync({ courtCount });
+      showToast("Courts updated", "success");
+    } catch (error) {
+      showToast(toUserMessage(error, "Failed to update courts"), "error");
+    }
+  };
+
+  const saveBillingSetup = async (data: { courtFee: number; gameRate: number }) => {
+    try {
+      await updateSettings.mutateAsync(data);
+      showToast("Billing setup saved", "success");
+    } catch (error) {
+      showToast(toUserMessage(error, "Failed to save billing setup"), "error");
+      throw error;
+    }
+  };
 
   const confirmRemove = async () => {
     if (!playerToRemove) return;
@@ -108,6 +133,8 @@ export function QueuePage() {
         <CourtsTab
           queue={queue}
           players={players}
+          isSavingCourtCount={updateSettings.isPending}
+          onChangeCourtCount={(courtCount) => void changeCourtCount(courtCount)}
           onShowAddPlayer={() => setShowAddPlayer(true)}
           onRemovePlayer={setPlayerToRemove}
           onTogglePause={(player) => actions.togglePause.mutate(player)}
@@ -122,14 +149,7 @@ export function QueuePage() {
         </div>
       )}
 
-      {activeTab === "billing" && (
-        <div className="app-shell-safe-bottom flex flex-1 items-center justify-center bg-[radial-gradient(circle_at_top_left,#eff6ff,#f8fbff_36%,#eef6ff)] p-4">
-          <div className="max-w-md text-center">
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">{queue.name}</h1>
-            <p className="mt-3 text-sm leading-6 text-slate-500">The Billing tab is being migrated to Qminton.</p>
-          </div>
-        </div>
-      )}
+      {activeTab === "billing" && <BillingTab queue={queue} onSaveBillingSetup={saveBillingSetup} />}
     </div>
   );
 }

@@ -10,6 +10,8 @@ import type { Queue } from "@/services/queues";
 interface Props {
   queue: Queue;
   players: Player[];
+  isSavingCourtCount: boolean;
+  onChangeCourtCount: (courtCount: number) => void;
   onShowAddPlayer: () => void;
   onRemovePlayer: (player: Player) => void;
   onTogglePause: (player: Player) => void;
@@ -44,11 +46,23 @@ function RateChip({ label, value, muted = false }: { label: string; value: strin
   );
 }
 
-// The Courts tab layout (ported from the old QueueCourtsTab). In step 5 the
-// players sidebar is live; the courts show as available and the match
-// controls (court count, Start Next Match, Up Next, Match Log, Reset) arrive
-// in steps 6–9.
-export function CourtsTab({ queue, players, onShowAddPlayer, onRemovePlayer, onTogglePause, onMoveToBottom }: Props) {
+const courtCountButtonClass =
+  "inline-flex h-7 w-7 items-center justify-center rounded-full text-base font-black leading-none text-slate-700 transition-colors hover:bg-sky-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40";
+
+// The Courts tab layout (ported from the old QueueCourtsTab). Live so far:
+// players sidebar (step 5) and court count +/- (step 6). Courts show as
+// available until matches exist; Start Next Match, Up Next, Match Log and
+// Reset arrive in steps 7–9.
+export function CourtsTab({
+  queue,
+  players,
+  isSavingCourtCount,
+  onChangeCourtCount,
+  onShowAddPlayer,
+  onRemovePlayer,
+  onTogglePause,
+  onMoveToBottom,
+}: Props) {
   const [playersCollapsed, setPlayersCollapsed] = useState(false);
   const [playersExpanded, setPlayersExpanded] = useState(false);
   const courts = getEmptyCourts(queue.court_count);
@@ -126,10 +140,32 @@ export function CourtsTab({ queue, players, onShowAddPlayer, onRemovePlayer, onT
                 <div className="mb-3 rounded-2xl border border-sky-100 bg-slate-50/80 px-3 py-2 md:shrink-0">
                   <div className="flex flex-wrap items-center justify-between gap-2.5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="inline-flex min-h-9 items-center gap-3 rounded-full border border-sky-200 bg-white px-3 py-1.5 text-slate-600 shadow-sm">
+                      <div className="inline-flex min-h-9 items-center gap-2 rounded-full border border-sky-200 bg-white px-2.5 py-1.5 text-slate-600 shadow-sm">
                         <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-500">Court Count</span>
                         <span className="h-4 w-px bg-sky-100" aria-hidden="true" />
-                        <span className="min-w-5 text-center text-lg font-black leading-none text-slate-900">{queue.court_count}</span>
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            aria-label="Decrease court count"
+                            onClick={() => onChangeCourtCount(queue.court_count - 1)}
+                            disabled={isSavingCourtCount || queue.court_count <= 1}
+                            className={courtCountButtonClass}
+                          >
+                            -
+                          </button>
+                          <span className="min-w-5 text-center text-lg font-black leading-none text-slate-900" aria-live="polite">
+                            {queue.court_count}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="Increase court count"
+                            onClick={() => onChangeCourtCount(queue.court_count + 1)}
+                            disabled={isSavingCourtCount || queue.court_count >= 6}
+                            className={courtCountButtonClass}
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
                       <div className="inline-flex items-center gap-2 px-1 py-1 text-sm font-medium text-slate-600">
                         <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />

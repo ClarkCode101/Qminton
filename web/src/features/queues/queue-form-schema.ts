@@ -31,3 +31,12 @@ export const newQueueFormSchema = z.object({
 // What the form fields hold (text) vs. what we send to the database (numbers).
 export type NewQueueFormInput = z.input<typeof newQueueFormSchema>;
 export type NewQueueFormOutput = z.output<typeof newQueueFormSchema>;
+
+// Billing setup (court fee + shuttle rate), same rules as when creating a queue.
+export const billingSetupSchema = z.object({
+  courtFee: pesoAmount(),
+  gameRate: pesoAmount(),
+});
+
+export type BillingSetupInput = z.input<typeof billingSetupSchema>;
+export type BillingSetupOutput = z.output<typeof billingSetupSchema>;
