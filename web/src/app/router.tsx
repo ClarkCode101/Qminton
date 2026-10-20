@@ -16,6 +16,11 @@ export const router = createBrowserRouter([
     lazy: async () => ({ Component: (await import("@/pages/display-page")).DisplayPage }),
   },
   {
+    // Public: player self check-in from the organizer's QR (owner's addition).
+    path: "/join/:token",
+    lazy: async () => ({ Component: (await import("@/pages/check-in-page")).CheckInPage }),
+  },
+  {
     // Organizer pages: only for logged-in users.
     element: <RequireAuth />,
     children: [

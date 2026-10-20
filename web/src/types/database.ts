@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      check_ins: {
+        Row: {
+          is_open: boolean
+          queue_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          is_open?: boolean
+          queue_id: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          is_open?: boolean
+          queue_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: true
+            referencedRelation: "queue_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "check_ins_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: true
+            referencedRelation: "queues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ledger_entries: {
         Row: {
           amount: number
@@ -523,6 +559,14 @@ export type Database = {
         Args: { p_match_id: string; p_queue_id: string }
         Returns: undefined
       }
+      check_in: {
+        Args: {
+          p_name: string
+          p_skill: Database["public"]["Enums"]["skill_level"]
+          p_token: string
+        }
+        Returns: Json
+      }
       create_match: {
         Args: {
           p_balance_text: string
@@ -548,6 +592,7 @@ export type Database = {
         Args: { p_court_no: number; p_match_id?: string; p_queue_id: string }
         Returns: Json
       }
+      get_check_in: { Args: { p_token: string }; Returns: Json }
       get_display: { Args: { p_queue_id: string }; Returns: Json }
       move_player_to_bottom: {
         Args: { p_player_id: number; p_queue_id: string }
@@ -636,6 +681,21 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "ledger_entries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_check_in: {
+        Args: { p_new_code?: boolean; p_open?: boolean; p_queue_id: string }
+        Returns: {
+          is_open: boolean
+          queue_id: string
+          token: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "check_ins"
           isOneToOne: true
           isSetofReturn: false
         }

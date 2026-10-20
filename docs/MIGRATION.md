@@ -139,10 +139,117 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Owner deploys to Cloudflare Pages (to test the QR on a real phone), then manual test of step 11.
-Step 11 was committed BEFORE the owner's manual test, at the owner's request, so it can be deployed.
+Owner pushes, then tests self check-in on the deployed site. Then: Billing tab review or step 13.
 
-### 🔄 Step 11: Display + Realtime + QR (SQL applied via MCP as `display_realtime`; committed; owner test pending)
+### ✅ Courts tab UI review (owner asked for items 1–7, 2026-10-20; committed `bdd641a`)
+Checked with headless Edge screenshots (1280, 1600, and a 390px phone frame) using a temporary
+fake-data preview page (deleted afterwards). Same features and rules; layout/look only.
+1. Players sidebar: tall flip cards → **compact rows** (name, skill · games, status chip); tap a row to
+   show Take Break / Move Later / Remove under it. 1280px shows ~9 players instead of 4. The expanded
+   players overlay is unchanged.
+2. Court diagram: each team is centered in its half on a light dark backing, so court lines never cross
+   the names (also on the public display).
+3. Courts grid is 3 per row from 1280px (`xl`), court diagram a bit shorter, Up Next cards more compact:
+   3 courts + Up Next fit on a laptop screen without scrolling.
+4. Reset Matchmaking moved into a "⋯" menu (`components/more-menu.tsx`, now also used by the landing
+   queue card menu); the toolbar fits one row at 1280px.
+5. Main button when it can't start (e.g. "Need 1 more player"): neutral slate style with readable text
+   instead of 40% opacity blue.
+6. Phones: main button and Add Player side by side, tighter rate chips and paddings; the first court
+   starts ~100px higher.
+7. Small text: "Team 1/2" 8px → 11px, "Playing for" 9–10px → 11px, grays slate-400 → slate-500.
+- Follow-up on the Players panel (owner's screenshot, chose "text buttons"):
+  A. The look-alike Hide / Expand icon buttons → small text buttons "Hide · Expand" under Add Player
+     (`viewActions` prop on `PlayerListPanel`). B. Each player row has a ˅ arrow that turns up when open.
+  C. Status filter dropdown → one-tap chips with counts (sidebar: one sideways-scrolling line; expanded
+     view: wraps; same chips in both). D. Lighter search box (no shadow, 40px) and a thin scrollbar.
+- Second follow-up (owner: hard to use on an iPad, easy to mis-tap, chips looked cut off):
+  Add Player / Expand / Hide = one row of 40px buttons; filter chips wrap (36px tall) instead of
+  scrolling off the edge; row actions (Take Break, Move Later, ×) 36px. Courts grid uses a **container
+  query** (`@container`, `@lg` 2 / `@3xl` 3 per row) so it follows the space the courts get: 1 per row
+  on an iPad in portrait, 2 on a tablet in landscape, 3 on a laptop. Queue name wraps instead of "…".
+  Checked at 820×1180, 1180×820 and 1280×800.
+- Third follow-up (owner chose "A"): the status filter chips are **only in the Expand view** now. The
+  sidebar keeps search; its list is already sorted by status and each row shows its status chip.
+  (The filter feature still exists, so nothing from the old app is lost.)
+- Expand view redesign (owner OK): the 390px-tall cards (status shown 3×, queue spot 2×, boxes in
+  boxes) → one **table-like list**: # | Player | Status | Skill | Games | Actions, column headings,
+  fixed column widths so rows line up (`EXPANDED_ROW_GRID`), actions always visible (36px buttons;
+  "Remove" is a word, not a red ×). Below 1024px the actions sit under the name. The close button is
+  the same gray ✕ as other overlays and sits after Add Player (red ✕ looked like "delete").
+  ~10 players visible at 1280×800 (was 4). Sidebar rows use the same action buttons.
+  The close ✕ has no hover label any more (it was cut off at the panel's right edge); `SidebarButton`
+  removed. The navbar tooltips are the only hover labels left (not clipped).
+- Close ✕ (owner chose "a"): new shared `components/close-button.tsx` used by every dialog/overlay
+  (OverlayPanel, BillingModal, New Queue, expanded players): gray at rest, **red on hover** (no hover
+  on touch screens, so gray there). Red at rest was rejected: red means delete/remove in this app.
+- Wide screens / players panel hidden (owner asked for all 3):
+  1. Tried: Up Next as a column next to the courts on wide screens. **Reverted at the owner's request**
+     (looked worse with 4+ courts); Up Next always sits under the courts. Kept: Up Next cards per row
+     follow the section's own width (`@container`).
+  2. "Show players" → same pill as Match Log, labeled **"Players (N)"**.
+  3. Court timer shows hours from one hour on: "2:24:54" instead of "144:54" (also on the display).
+  - Follow-up: adding a court auto-starts the waiting match (old rule), which made Up Next vanish and
+    the layout jump. Up Next is now **always shown** (empty state "No matches waiting.", no View all).
+  - Follow-up (owner: Up Next looked "too long"): no full-width box around Up Next any more; the
+    heading line is "UP NEXT · N matches waiting · View all" and the match cards use the **same
+    columns as the court cards** (1 / 2 / 3 per row), so they line up. The empty state is one
+    card-sized dashed box.
+- **Add Players redesign** (owner chose "one list"): no more Single / Bulk tabs. Type a name + Enter
+  (or "Add to list"), or paste a list (multi-line paste goes straight into the list, numbering/bullets
+  stripped as before); each name gets a row with a worded skill picker (`SkillSegmented`: Beginner /
+  Intermediate / Advanced, with the bar icon) and a ✕; "Set all" sets every row and the default for new
+  names. Names already in the queue (case-insensitive) or longer than 40 characters are flagged
+  ("will be skipped") and left out **before** saving. A name still typed in the box is included when
+  pressing "Add N players". One call for 1 or many (`bulkAddPlayers`, toast "Added N players");
+  `addPlayer` service + `actions.add` removed. Wider dialog (max-w-xl); on phones the bottom sheet
+  puts each row's skill picker under the name. Old `SkillPicker` / `CompactSkillPicker` removed.
+  - Follow-up (owner: adding ONE player had no skill choice and "glitched"): a **"Skill:" picker under
+    the name box** (skill for the name being typed and the next ones). Pressing "Add N players" with a
+    name still in the box saves it directly with that skill (no flash of it entering the list first);
+    the button count includes it. "Set all" only shows with 2+ names in the list and only changes the
+    rows. Empty-list hint explains one vs. many.
+
+### ✅ Player self check-in by QR (owner's request 2026-10-20; new feature; SQL applied via MCP as `self_check_in`; committed)
+- Applied 2026-10-20 with the owner's OK. Verified: `check_in` / `get_check_in` executable by anon (by
+  design), `set_check_in` authenticated only, `check_ins` RLS on (anon no select). Performance advisor: clean.
+Owner chose: players are added **straight to the queue** (no approval step); the QR lives in **Add Players**.
+- DB `20261026120000_self_check_in.sql`: table `check_ins` (queue_id PK → queues, `token` uuid unique,
+  `is_open` default false; RLS owner-select only; anon nothing). RPCs: `set_check_in(queue, open?, new_code?)`
+  (owner; creates the row closed on first read; touch_queue on change), `get_check_in(token)` (anon:
+  queue id/name/mode/is_open, null for unknown code), `check_in(token, name, skill)` (anon: locks the queue,
+  re-checks open + token under the lock, name 1–40, skill required, no duplicate active name, max 150
+  active players, adds at the end, bills "Initial court fee", touch_queue → organizer screen updates live;
+  returns name + 1-based position + queue id). The QR holds the token, not the queue id, so the display
+  link can't add players; "New code" invalidates old QRs.
+- Dry-run `supabase/dry-runs/20261026_self_check_in_dry_run.sql` via MCP: 21/21 OK.
+- Frontend: `services/check-in.ts`, `features/check-in/use-check-in.ts` (key under `["queues", id]`),
+  `check-in-qr-dialog.tsx` (Open/Close, QR dimmed while closed, Copy link, New code with confirm),
+  public page `/join/:token` (`pages/check-in-page.tsx`: name + skill (must pick) → Join → "Welcome, Ana!
+  You're #12", Watch the courts, Add someone else; closed / invalid-code states). Add Players modal has
+  "Let players check in with QR". `getCheckInPath/Url` in `lib/routes.ts`. `database.ts` updated by hand.
+- Tests: 135 passing.
+
+### ✅ Speed fixes (owner request 2026-10-20: "the system feels slow"; committed `bdd641a`)
+Review result: the database is fast (reads < 2 ms, RPCs 20–80 ms, indexes fine); the slowness was
+round trips (PH ↔ Singapore) and too many reloads (players list fetched 305× for 19 matchmaking runs).
+- **A.** Actions show their toast / close their dialog as soon as the RPC saved; reloads run in the
+  background (`use-matchmaking.ts`, `use-players.ts`, `use-billing.ts`, `useUpdateQueueSettings` which
+  also puts the returned queue in the cache). Pause/Resume puts the returned player in the cache at once.
+  `setPlayerPaused` now returns the player. Player actions also reload the queue row (for its version).
+- **B.** Ledger + billing players load only while the Billing tab is open; billed totals only on the
+  Players tab (`enabled`). Courts tab reloads 4 queries per change instead of 7.
+- **C.** Realtime messages carry the queue version; `useQueueLiveUpdates` passes the highest version of a
+  burst, and the queue page skips the reload when it already shows that version (the echo of its own
+  change). Reconnect / backup refresh / deleted queue always reload.
+- Not done (optional, needs SQL): **D** = one RPC for the Start Next Match snapshot (saves 1 round trip).
+- Tests: 127 passing (`queue-page-live.test.tsx` new; Realtime mock in `test/setup.ts` is now a plain
+  function so `vi.resetAllMocks()` can't break it).
+
+### ✅ Step 11: Display + Realtime + QR (SQL applied via MCP as `display_realtime`; committed `e3b5a03`; owner OK 2026-10-20)
+- Committed before the owner's manual test (owner's request, to deploy). Owner then deployed to
+  **Cloudflare Pages** (Git integration, auto-deploy on push to `main`) and confirmed the deploy and the
+  QR scan on a phone work.
 - Also added early (from step 13): `web/public/_redirects` (`/* /index.html 200`, SPA fallback on
   Cloudflare Pages). Cloudflare settings given to the owner: root `web`, build `npm run build`, output
   `dist`, env `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` (optional `NODE_VERSION=22`).
@@ -379,7 +486,7 @@ Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, create
 8. ~~Finish game + rest logic + auto-start next pending; reset matchmaking~~
 9. ~~Match log~~
 10. ~~Billing: ledger, adjustments, shared fee, full/partial/bulk payment, undo, CSV, share summary~~
-11. Display page + Supabase Realtime (replaces 10s polling + BroadcastChannel)
+11. ~~Display page + Supabase Realtime (replaces 10s polling + BroadcastChannel)~~
     + **owner's addition (2026-10-20): QR code to the display link**, in BOTH places: a "Show QR"
     button in the organizer view (big QR in a dialog, for venues without a big screen) and a small QR
     in a corner of the Display page. Library: `qrcode.react` (ISC). New feature by owner request

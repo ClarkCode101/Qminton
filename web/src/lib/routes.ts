@@ -8,6 +8,15 @@ export function getQueueDisplayPath(queueId: string): string {
   return `/queue/${encodeURIComponent(queueId)}/display`;
 }
 
+// Player self check-in page; the QR holds this link (a separate code, not the queue id).
+export function getCheckInPath(token: string): string {
+  return `/join/${encodeURIComponent(token)}`;
+}
+
+export function getCheckInUrl(token: string, origin: string = window.location.origin): string {
+  return `${origin}${getCheckInPath(token)}`;
+}
+
 // The full display link (for the QR code): "https://<this site>/queue/<id>/display".
 export function getQueueDisplayUrl(queueId: string, origin: string = window.location.origin): string {
   return `${origin}${getQueueDisplayPath(queueId)}`;

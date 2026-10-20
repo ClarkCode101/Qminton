@@ -10,6 +10,8 @@ interface Props {
   existingNames: string[];
   // Should throw if saving fails; the modal then stays open with the list.
   onAdd: (players: NewPlayer[]) => Promise<void>;
+  // Opens the Check-in QR (players add themselves).
+  onShowCheckIn: () => void;
   onClose: () => void;
 }
 
@@ -23,7 +25,7 @@ interface Entry {
 // skills can be set, then one button adds them all. Names already in the queue
 // or too long are flagged and left out. Centered dialog on desktop, bottom
 // sheet on phones.
-export function AddPlayerModal({ existingNames, onAdd, onClose }: Props) {
+export function AddPlayerModal({ existingNames, onAdd, onShowCheckIn, onClose }: Props) {
   const ids = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState("");
@@ -172,7 +174,21 @@ export function AddPlayerModal({ existingNames, onAdd, onClose }: Props) {
         </div>
         {notice && <p className="mt-2 px-5 text-xs font-medium text-amber-700 sm:px-6">{notice}</p>}
 
-
+        {/* Owner's addition: players can add themselves by scanning a QR code. */}
+        <div className="mt-3 px-5 sm:px-6">
+          <button
+            type="button"
+            onClick={onShowCheckIn}
+            disabled={isSaving}
+            className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-sky-200 bg-sky-50/60 px-3 text-sm font-semibold text-sky-700 transition-colors hover:bg-sky-100 cursor-pointer disabled:opacity-50"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75h6v6h-6v-6Zm10.5 0h6v6h-6v-6Zm-10.5 10.5h6v6h-6v-6Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 14.25h2.25v2.25h-2.25zM18 18h2.25v2.25H18zM18 14.25h2.25M14.25 18v2.25" />
+            </svg>
+            Let players check in with QR
+          </button>
+        </div>
 
         <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-slate-100 bg-slate-50/80">
           {entries.length === 0 ? (

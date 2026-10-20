@@ -8,6 +8,7 @@ import { ConfirmActionModal } from "@/components/confirm-action-modal";
 import { FullScreenMessage } from "@/components/full-screen-message";
 import { LoadError } from "@/components/load-error";
 import { BillingTab } from "@/features/billing/billing-tab";
+import { CheckInQrDialog } from "@/features/check-in/check-in-qr-dialog";
 import { useBillingActions, useBillingPlayers, useLedger } from "@/features/billing/use-billing";
 import { CourtsTab } from "@/features/courts/courts-tab";
 import { ResetMatchmakingDialog } from "@/features/matchmaking/reset-matchmaking-dialog";
@@ -65,6 +66,7 @@ export function QueuePage() {
   const [showResetDialog, setShowResetDialog] = useState(false);
 
   const [showAddPlayer, setShowAddPlayer] = useState(false);
+  const [showCheckIn, setShowCheckIn] = useState(false);
   const [playerToRemove, setPlayerToRemove] = useState<Player | null>(null);
   const [matchToCancel, setMatchToCancel] = useState<MatchWithPlayers | null>(null);
 
@@ -173,9 +175,15 @@ export function QueuePage() {
             await actions.bulkAdd.mutateAsync(newPlayers);
             setShowAddPlayer(false);
           }}
+          onShowCheckIn={() => {
+            setShowAddPlayer(false);
+            setShowCheckIn(true);
+          }}
           onClose={() => setShowAddPlayer(false)}
         />
       )}
+
+      {showCheckIn && <CheckInQrDialog queueId={queue.id} queueName={queue.name} onClose={() => setShowCheckIn(false)} />}
 
       {playerToRemove && (
         <ConfirmActionModal
