@@ -1,41 +1,53 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState, type ClipboardEvent } from "react";
 
+import { CloseButton } from "@/components/close-button";
 import { MAX_PLAYER_NAME_LENGTH, parseBulkNames } from "@/features/players/bulk-names";
-import { SKILL_LABELS, SKILLS } from "@/features/players/player-status";
-import { CompactSkillPicker, SkillIcon, SkillPicker } from "@/features/players/skill-picker";
+import { SkillSegmented } from "@/features/players/skill-picker";
 import type { NewPlayer, SkillLevel } from "@/services/players";
 
 interface Props {
-  // Both should throw if saving fails; the modal then stays open.
-  onAdd: (player: NewPlayer) => Promise<void>;
-  onBulkAdd: (players: NewPlayer[]) => Promise<void>;
+  // Names of players already in the queue, to flag repeats before saving.
+  existingNames: string[];
+  // Should throw if saving fails; the modal then stays open with the list.
+  onAdd: (players: NewPlayer[]) => Promise<void>;
   onClose: () => void;
 }
 
-type Mode = "single" | "bulk";
+interface Entry {
+  name: string;
+  skill: SkillLevel;
+}
 
-const inputClass =
-  "w-full rounded-lg border border-sky-200 bg-sky-50/50 p-2.5 text-sm text-slate-800 placeholder:text-slate-500 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500";
-const cancelButtonClass =
-  "flex-1 rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-all hover:bg-sky-50 cursor-pointer";
-const submitButtonClass =
-  "flex-1 rounded-lg border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
-
-// "Add New Player" (ported from the old AddPlayerModal). One layout for both
-// screen sizes: a centered dialog on desktop, a bottom sheet on phones.
-export function AddPlayerModal({ onAdd, onBulkAdd, onClose }: Props) {
+// "Add Players": one way for 1 or 30 players (replaces the old Single / Bulk
+// tabs). Type a name + Enter, or paste a list; everyone waits in a list where
+// skills can be set, then one button adds them all. Names already in the queue
+// or too long are flagged and left out. Centered dialog on desktop, bottom
+// sheet on phones.
+export function AddPlayerModal({ existingNames, onAdd, onClose }: Props) {
   const ids = useId();
-  const [mode, setMode] = useState<Mode>("single");
-  const [name, setName] = useState("");
-  const [skill, setSkill] = useState<SkillLevel>("beginner");
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [bulkText, setBulkText] = useState("");
-  const [playerSkills, setPlayerSkills] = useState<Record<string, SkillLevel>>({});
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [draft, setDraft] = useState("");
+  const [entries, setEntries] = useState<Entry[]>([]);
+  // Skill for the name being typed (and the next ones), picked under the name box.
+  const [defaultSkill, setDefaultSkill] = useState<SkillLevel>("beginner");
+  const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const parsedNames = parseBulkNames(bulkText);
-  const tooLongNames = parsedNames.filter((playerName) => playerName.length > MAX_PLAYER_NAME_LENGTH);
-  const bulkLabel = `Add${parsedNames.length > 0 ? ` ${parsedNames.length}` : ""} Player${parsedNames.length !== 1 ? "s" : ""}`;
+  const inQueue = new Set(existingNames.map((name) => name.toLowerCase()));
+  const problem = (entry: Entry): string | null => {
+    if (inQueue.has(entry.name.toLowerCase())) return "Already in the queue";
+    if (entry.name.length > MAX_PLAYER_NAME_LENGTH) return `Too long (max ${MAX_PLAYER_NAME_LENGTH} characters)`;
+    return null;
+  };
+  const addable = entries.filter((entry) => problem(entry) === null);
+  // Name(s) still in the box, not yet in the list: they count when pressing Add.
+  const listedNames = new Set(entries.map((entry) => entry.name.toLowerCase()));
+  const typed: Entry[] = parseBulkNames(draft)
+    .filter((name) => !listedNames.has(name.toLowerCase()))
+    .map((name) => ({ name, skill: defaultSkill }));
+  const typedAddable = typed.filter((entry) => problem(entry) === null);
+  const addCount = addable.length + typedAddable.length;
+  const sameSkill = entries.length > 0 && entries.every((entry) => entry.skill === entries[0].skill) ? entries[0].skill : null;
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -45,209 +57,205 @@ export function AddPlayerModal({ onAdd, onBulkAdd, onClose }: Props) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isSaving, onClose]);
 
-  const switchMode = (nextMode: Mode) => {
-    setMode(nextMode);
-    setName("");
-    setSkill("beginner");
-    setNameError(null);
-    setBulkText("");
-    setPlayerSkills({});
+  // Adds names to the list (one typed name or a pasted list); returns the new list.
+  const addNames = (text: string): Entry[] => {
+    const names = parseBulkNames(text);
+    if (names.length === 0) return entries;
+    const listed = new Set(entries.map((entry) => entry.name.toLowerCase()));
+    const fresh = names.filter((name) => !listed.has(name.toLowerCase()));
+    const repeated = names.length - fresh.length;
+    setNotice(repeated > 0 ? `${repeated === 1 ? "1 name is" : `${repeated} names are`} already in the list.` : null);
+    const next = [...entries, ...fresh.map((name) => ({ name, skill: defaultSkill }))];
+    setEntries(next);
+    setDraft("");
+    return next;
   };
 
-  const save = async (action: () => Promise<void>) => {
+  const handlePaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const text = event.clipboardData.getData("text");
+    // A pasted list (several lines) goes straight into the list.
+    if (text.includes("\n")) {
+      event.preventDefault();
+      addNames(text);
+    }
+  };
+
+  const setAll = (skill: SkillLevel) => {
+    setEntries((current) => current.map((entry) => ({ ...entry, skill })));
+  };
+
+  const submit = async () => {
+    // A name still in the box counts too, with the skill picked under it. It is
+    // saved directly (not shown in the list first), so nothing flickers.
+    const players = [...addable, ...typedAddable];
+    if (players.length === 0) {
+      inputRef.current?.focus();
+      return;
+    }
     setIsSaving(true);
     try {
-      await action();
+      await onAdd(players);
     } catch {
-      // The caller already showed a toast; keep what was typed.
+      // The caller already showed a toast; keep the list.
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleSingleSubmit = async () => {
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setNameError("Please enter player name");
-      return;
-    }
-    if (trimmedName.length > MAX_PLAYER_NAME_LENGTH) {
-      setNameError(`Player name must be ${MAX_PLAYER_NAME_LENGTH} characters or less`);
-      return;
-    }
-    await save(() => onAdd({ name: trimmedName, skill }));
-  };
-
-  const handleBulkSubmit = async () => {
-    if (parsedNames.length === 0 || tooLongNames.length > 0) return;
-    await save(() => onBulkAdd(parsedNames.map((playerName) => ({ name: playerName, skill: playerSkills[playerName] ?? "beginner" }))));
-  };
-
-  const setAllSkills = (nextSkill: SkillLevel) => {
-    setPlayerSkills(Object.fromEntries(parsedNames.map((playerName) => [playerName, nextSkill])));
-  };
-
-  const tabClass = (tab: Mode) =>
-    `-mb-px border-b-2 px-2 pb-2 text-sm font-medium transition-all cursor-pointer ${
-      mode === tab ? "border-blue-600 text-blue-600" : "border-transparent text-slate-500 hover:text-slate-700"
-    }`;
+  const submitLabel = `Add ${addCount > 0 ? `${addCount} ` : ""}player${addCount === 1 ? "" : "s"}`;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={isSaving ? undefined : onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${ids}-title`}
-        className="max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-sky-200 bg-white px-5 pb-6 shadow-xl sm:max-h-[85vh] sm:w-[90%] sm:max-w-sm sm:rounded-xl sm:p-6"
+        className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl border border-sky-200 bg-white shadow-xl sm:max-w-xl sm:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Drag-handle look on phones (bottom sheet) */}
-        <div className="flex justify-center pb-2 pt-3 sm:hidden" aria-hidden="true">
+        <div className="flex justify-center pt-3 sm:hidden" aria-hidden="true">
           <div className="h-1 w-10 rounded-full bg-sky-300" />
         </div>
 
-        <h2 id={`${ids}-title`} className="mb-4 text-lg font-semibold text-slate-800">
-          Add New Player
-        </h2>
-
-        <div className="mb-4 flex gap-2 border-b border-sky-200" role="tablist">
-          <button type="button" role="tab" aria-selected={mode === "single"} onClick={() => switchMode("single")} className={tabClass("single")}>
-            Single Player
-          </button>
-          <button type="button" role="tab" aria-selected={mode === "bulk"} onClick={() => switchMode("bulk")} className={tabClass("bulk")}>
-            Bulk Add
-          </button>
+        <div className="flex items-start justify-between gap-3 px-5 pt-4 sm:px-6 sm:pt-5">
+          <div>
+            <h2 id={`${ids}-title`} className="text-lg font-semibold text-slate-800">
+              Add Players
+            </h2>
+            <p className="mt-0.5 text-sm text-slate-500">Type a name and pick a skill. Press Enter to add more, or paste a whole list.</p>
+          </div>
+          <CloseButton label="Close add players" onClick={onClose} disabled={isSaving} size="sm" />
         </div>
 
-        {mode === "single" ? (
-          <form
-            noValidate
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handleSingleSubmit();
+        <form
+          noValidate
+          className="mt-4 flex gap-2 px-5 sm:px-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            addNames(draft);
+            inputRef.current?.focus();
+          }}
+        >
+          <label htmlFor={`${ids}-name`} className="sr-only">
+            Player name
+          </label>
+          <input
+            ref={inputRef}
+            id={`${ids}-name`}
+            type="text"
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setNotice(null);
             }}
+            onPaste={handlePaste}
+            placeholder="Player name"
+            autoComplete="off"
+            className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-500 focus:border-blue-300 focus:ring-2 focus:ring-sky-100"
+            autoFocus
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim()}
+            className="inline-flex h-10 shrink-0 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <div className="mb-4">
-              <label htmlFor={`${ids}-name`} className="mb-2 block text-sm font-medium text-slate-700">
-                Player Name
-              </label>
-              <input
-                id={`${ids}-name`}
-                type="text"
-                value={name}
-                maxLength={MAX_PLAYER_NAME_LENGTH}
-                onChange={(event) => {
-                  setName(event.target.value);
-                  setNameError(null);
-                }}
-                placeholder="Enter player name"
-                aria-invalid={nameError ? true : undefined}
-                aria-describedby={nameError ? `${ids}-name-error` : undefined}
-                className={`${inputClass} ${nameError ? "border-rose-300" : ""}`}
-                autoFocus
-              />
-              {nameError && (
-                <p id={`${ids}-name-error`} className="mt-2 text-xs font-medium text-rose-600">
-                  {nameError}
-                </p>
-              )}
-            </div>
-            <div className="mb-5">
-              <p className="mb-2 block text-sm font-medium text-slate-700">Skill Level</p>
-              <SkillPicker value={skill} onChange={setSkill} />
-            </div>
-            <div className="flex gap-3">
-              <button type="button" onClick={onClose} disabled={isSaving} className={cancelButtonClass}>
-                Cancel
-              </button>
-              <button type="submit" disabled={isSaving} className={submitButtonClass}>
-                {isSaving ? "Adding..." : "Add Player"}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <>
-            <div className="mb-4">
-              <label htmlFor={`${ids}-bulk`} className="mb-2 block text-sm font-medium text-slate-700">
-                Paste Player List
-              </label>
-              <textarea
-                id={`${ids}-bulk`}
-                value={bulkText}
-                onChange={(event) => setBulkText(event.target.value)}
-                placeholder={"1. Clark\n2. Diego\n3. Lenon"}
-                rows={3}
-                autoFocus
-                aria-describedby={tooLongNames.length > 0 ? `${ids}-bulk-error` : undefined}
-                className={`${inputClass} resize-none font-mono`}
-              />
-              {tooLongNames.length > 0 && (
-                <p id={`${ids}-bulk-error`} className="mt-2 text-xs font-medium text-rose-600">
-                  Names must be {MAX_PLAYER_NAME_LENGTH} characters or less. Shorten: {tooLongNames.join(", ")}
-                </p>
-              )}
-            </div>
+            Add to list
+          </button>
+        </form>
+        <div className="mt-2 flex items-center gap-2 px-5 sm:px-6">
+          <span className="text-xs font-medium text-slate-500">Skill:</span>
+          <SkillSegmented value={defaultSkill} onChange={setDefaultSkill} label="Skill level for the next player" fill />
+        </div>
+        {notice && <p className="mt-2 px-5 text-xs font-medium text-amber-700 sm:px-6">{notice}</p>}
 
-            {parsedNames.length > 0 && (
-              <div className="mb-5 rounded-lg border border-sky-200 bg-slate-50 p-3">
-                <div className="mb-2">
-                  <p className="mb-2 text-xs font-semibold text-slate-600">Set All:</p>
-                  <div className="flex gap-1.5">
-                    {SKILLS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setAllSkills(option.value)}
-                        title={`Set all to ${SKILL_LABELS[option.value]}`}
-                        className="flex-1 rounded-lg border-2 border-sky-200 bg-white p-1.5 text-center text-xs font-medium text-slate-600 transition-all hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 cursor-pointer"
-                      >
-                        <div className="mb-0.5 flex justify-center">
-                          <SkillIcon bars={option.bars} />
-                        </div>
-                        <span className="text-xs leading-tight">{SKILL_LABELS[option.value]}</span>
-                      </button>
-                    ))}
+
+
+        <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-slate-100 bg-slate-50/80">
+          {entries.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-slate-500 sm:px-6">
+              Adding one player? Just press the blue button.
+              <br />
+              Adding many? Press Enter after each name, or paste a list like “1. Clark / 2. Diego”.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-col gap-2 px-5 pt-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">To add ({entries.length})</p>
+                {entries.length >= 2 && (
+                  <div className="flex items-center gap-2">
+                    <span className="whitespace-nowrap text-xs font-medium text-slate-500">Set all:</span>
+                    <SkillSegmented value={sameSkill} onChange={setAll} label="Skill level for everyone" fill />
                   </div>
-                </div>
-
-                <div className="border-t border-sky-200 pt-2">
-                  <p className="mb-2 text-xs font-semibold text-slate-600">Skills:</p>
-                  <div className="max-h-40 space-y-1.5 overflow-y-auto">
-                    {parsedNames.map((playerName) => (
-                      <div key={playerName.toLowerCase()} className="flex items-center justify-between gap-2 rounded-lg border border-sky-100 bg-white p-2">
-                        <div className="truncate text-sm font-medium text-slate-700">{playerName}</div>
-                        <div className="shrink-0">
-                          <CompactSkillPicker
-                            playerName={playerName}
-                            value={playerSkills[playerName] ?? "beginner"}
-                            onChange={(nextSkill) => setPlayerSkills((current) => ({ ...current, [playerName]: nextSkill }))}
+                )}
+              </div>
+              <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto px-5 pb-3 sm:px-6">
+                {entries.map((entry) => {
+                  const issue = problem(entry);
+                  return (
+                    // Phones: name + ✕ on top, skill picker underneath. From 640px: one line.
+                    <li
+                      key={entry.name.toLowerCase()}
+                      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 rounded-xl border bg-white px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] ${
+                        issue ? "border-amber-200" : "border-slate-100"
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-800">{entry.name}</p>
+                        {issue && <p className="text-xs font-medium text-amber-700">{issue}: will be skipped</p>}
+                      </div>
+                      {!issue && (
+                        <div className="col-span-2 row-start-2 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+                          <SkillSegmented
+                            value={entry.skill}
+                            onChange={(skill) =>
+                              setEntries((current) => current.map((item) => (item.name === entry.name ? { ...item, skill } : item)))
+                            }
+                            label={`Skill level for ${entry.name}`}
+                            fill
                           />
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEntries((current) => current.filter((item) => item.name !== entry.name))}
+                        aria-label={`Remove ${entry.name} from the list`}
+                        className="col-start-2 row-start-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 cursor-pointer sm:col-start-3"
+                      >
+                        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <path d="m6 6 8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                          <path d="m14 6-8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
 
-            <div className="flex gap-3">
-              <button type="button" onClick={onClose} disabled={isSaving} className={cancelButtonClass}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleBulkSubmit()}
-                disabled={parsedNames.length === 0 || tooLongNames.length > 0 || isSaving}
-                className={submitButtonClass}
-              >
-                {isSaving ? "Adding..." : bulkLabel}
-              </button>
-            </div>
-          </>
-        )}
+        <div className="flex gap-3 border-t border-slate-100 px-5 py-4 sm:px-6">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={isSaving || addCount === 0}
+            className="h-10 flex-2 rounded-xl bg-blue-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSaving ? "Adding..." : submitLabel}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { renderApp } from "@/test/render-app";
 
 // Never talk to the real Supabase in tests.
 vi.mock("@/services/display", () => ({ getDisplay: vi.fn() }));
+vi.mock("@/services/realtime", () => ({ subscribeToQueueChanges: vi.fn(() => () => {}) }));
 
 const display: DisplayData = {
   name: "Saturday Session",

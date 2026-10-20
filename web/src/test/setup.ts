@@ -5,5 +5,6 @@ import { afterEach, vi } from 'vitest'
 // Remove whatever the previous test rendered, so tests don't see each other's screens.
 afterEach(() => cleanup())
 
-// No live Realtime connection in tests (a test can still override this mock).
-vi.mock('@/services/realtime', () => ({ subscribeToQueueChanges: vi.fn(() => () => {}) }))
+// No live Realtime connection in tests. A plain function (not vi.fn) so that
+// vi.resetAllMocks() in a test file can't break it; a test can still override it.
+vi.mock('@/services/realtime', () => ({ subscribeToQueueChanges: () => () => {} }))

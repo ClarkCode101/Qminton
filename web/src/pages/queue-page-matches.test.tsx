@@ -172,7 +172,9 @@ describe("starting and queueing matches", () => {
     vi.mocked(resetMatchmaking).mockResolvedValue("Matchmaking reset; courts cleared, queue returned, and history preserved");
     renderApp(routes, "/queue/q1");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Reset Matchmaking" }));
+    // Reset lives in the ⋯ menu, away from the everyday buttons.
+    fireEvent.click(await screen.findByRole("button", { name: "More court actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Reset Matchmaking" }));
     const dialog = screen.getByRole("alertdialog", { name: "Reset matchmaking?" });
     fireEvent.click(within(dialog).getByLabelText(/Include players on break/));
     await act(async () => {

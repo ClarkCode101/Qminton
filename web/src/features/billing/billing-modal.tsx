@@ -1,5 +1,6 @@
 import { useEffect, useId, type ReactNode } from "react";
 
+import { CloseButton } from "@/components/close-button";
 interface Props {
   title: string;
   description: string;
@@ -44,17 +45,7 @@ export function BillingModal({ title, description, badge, onClose, children, max
             </div>
             <p className="mt-1 text-sm text-slate-500">{description}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={`Close ${title}`}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-700 cursor-pointer"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-              <path d="m6 6 8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-              <path d="m14 6-8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-            </svg>
-          </button>
+          <CloseButton label={`Close ${title}`} onClick={onClose} />
         </div>
         <div className="overflow-y-auto p-6">{children}</div>
       </div>

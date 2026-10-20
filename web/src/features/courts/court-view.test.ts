@@ -10,6 +10,12 @@ describe("formatElapsed", () => {
     expect(formatElapsed(start, Date.parse("2026-10-16T00:10:30Z"))).toBe("12:30");
   });
 
+  it("adds hours from one hour on", () => {
+    expect(formatElapsed(start, Date.parse("2026-10-16T00:57:59Z"))).toBe("59:59");
+    expect(formatElapsed(start, Date.parse("2026-10-16T00:58:00Z"))).toBe("1:00:00");
+    expect(formatElapsed(start, Date.parse("2026-10-16T02:22:54Z"))).toBe("2:24:54");
+  });
+
   it("works across midnight (old bug #3 used '11:58 PM' strings)", () => {
     expect(formatElapsed(start, Date.parse("2026-10-16T00:01:00Z"))).toBe("3:00");
   });

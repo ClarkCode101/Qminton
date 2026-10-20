@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { QueuePage } from "@/pages/queue-page";
 import {
-  addPlayer,
   bulkAddPlayers,
   listPlayerBilledTotals,
   listPlayers,
@@ -22,7 +21,6 @@ vi.mock("@/services/matches", () => ({ listActiveMatches: vi.fn(async () => []),
 vi.mock("@/services/players", () => ({
   listPlayers: vi.fn(),
   listPlayerBilledTotals: vi.fn(),
-  addPlayer: vi.fn(),
   bulkAddPlayers: vi.fn(),
   removePlayer: vi.fn(),
   setPlayerPaused: vi.fn(),
@@ -76,73 +74,94 @@ describe("queue page players", () => {
 
     const sidebar = await screen.findByRole("complementary", { name: "Players" });
     expect(within(sidebar).getByText("2 players")).toBeInTheDocument();
-    // Each flip card has the name on its front and back.
-    expect(within(sidebar).getAllByText("Juan").length).toBeGreaterThan(0);
+    // One compact row per player: name, skill and games, status.
+    const juanRow = within(sidebar).getByRole("button", { name: "Show details for Juan" });
+    expect(within(juanRow).getByText("Juan")).toBeInTheDocument();
+    expect(within(juanRow).getByText("Beginner · 0 games")).toBeInTheDocument();
+    expect(within(juanRow).getByText("Ready")).toBeInTheDocument();
     expect(within(sidebar).getByRole("button", { name: "Show details for Maria" })).toBeInTheDocument();
   });
 
-  it("adds a single player", async () => {
-    vi.mocked(addPlayer).mockResolvedValue(makePlayer(3, "Pedro"));
+  it("adds one player: type, Enter, pick a skill, add", async () => {
+    vi.mocked(bulkAddPlayers).mockResolvedValue([makePlayer(3, "Pedro")]);
     renderApp(routes, "/queue/q1");
 
     fireEvent.click((await screen.findAllByRole("button", { name: "Add Player" }))[0]);
-    fireEvent.change(screen.getByLabelText("Player Name"), { target: { value: "  Pedro " } });
-    fireEvent.click(screen.getByRole("radio", { name: /Intermediate/ }));
+    const dialog = screen.getByRole("dialog", { name: "Add Players" });
+    fireEvent.change(within(dialog).getByLabelText("Player name"), { target: { value: "  Pedro " } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add to list" }));
+    const skills = within(dialog).getByRole("radiogroup", { name: "Skill level for Pedro" });
+    fireEvent.click(within(skills).getByRole("radio", { name: "Intermediate" }));
     await act(async () => {
-      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add Player" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Add 1 player" }));
     });
 
-    expect(addPlayer).toHaveBeenCalledWith("q1", { name: "Pedro", skill: "intermediate" });
+    expect(bulkAddPlayers).toHaveBeenCalledWith("q1", [{ name: "Pedro", skill: "intermediate" }]);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("asks for a name before adding", async () => {
+  it("adds one player straight from the box with the skill picked under it", async () => {
+    vi.mocked(bulkAddPlayers).mockResolvedValue([makePlayer(3, "Pedro")]);
     renderApp(routes, "/queue/q1");
 
     fireEvent.click((await screen.findAllByRole("button", { name: "Add Player" }))[0]);
+    const dialog = screen.getByRole("dialog", { name: "Add Players" });
+    fireEvent.change(within(dialog).getByLabelText("Player name"), { target: { value: "Pedro" } });
+    const nextSkill = within(dialog).getByRole("radiogroup", { name: "Skill level for the next player" });
+    fireEvent.click(within(nextSkill).getByRole("radio", { name: "Advanced" }));
     await act(async () => {
-      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add Player" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Add 1 player" }));
     });
 
-    expect(screen.getByText("Please enter player name")).toBeInTheDocument();
-    expect(addPlayer).not.toHaveBeenCalled();
+    expect(bulkAddPlayers).toHaveBeenCalledWith("q1", [{ name: "Pedro", skill: "advance" }]);
   });
 
-  it("shows the database message for a duplicate name and keeps the form open", async () => {
-    vi.mocked(addPlayer).mockImplementation(async () => {
-      throw { code: "P0001", message: "Player already exists" };
-    });
+  it("does nothing without a name", async () => {
     renderApp(routes, "/queue/q1");
 
     fireEvent.click((await screen.findAllByRole("button", { name: "Add Player" }))[0]);
-    fireEvent.change(screen.getByLabelText("Player Name"), { target: { value: "juan" } });
-    await act(async () => {
-      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add Player" }));
-    });
-
-    expect(await screen.findByText("Player already exists")).toBeInTheDocument();
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Add Players" });
+    expect(within(dialog).getByRole("button", { name: "Add players" })).toBeDisabled();
+    expect(bulkAddPlayers).not.toHaveBeenCalled();
   });
 
-  it("bulk adds a pasted list with one skill for all", async () => {
+  it("adds a pasted list, flags names already in the queue, and sets one skill for all", async () => {
     vi.mocked(bulkAddPlayers).mockResolvedValue([makePlayer(3, "Clark"), makePlayer(4, "Diego")]);
     renderApp(routes, "/queue/q1");
 
     fireEvent.click((await screen.findAllByRole("button", { name: "Add Player" }))[0]);
-    fireEvent.click(screen.getByRole("tab", { name: "Bulk Add" }));
-    fireEvent.change(screen.getByLabelText("Paste Player List"), { target: { value: "1. Clark\n2. Diego\n3. juan\nclark" } });
-    fireEvent.click(screen.getByTitle("Set all to Advanced"));
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Add 3 Players" }));
+    const dialog = screen.getByRole("dialog", { name: "Add Players" });
+    fireEvent.paste(within(dialog).getByLabelText("Player name"), {
+      clipboardData: { getData: () => "1. Clark\n2. Diego\n3. juan\nclark" },
     });
 
-    expect(bulkAddPlayers).toHaveBeenCalledWith("q1", [
-      { name: "Clark", skill: "advance" },
-      { name: "Diego", skill: "advance" },
-      { name: "juan", skill: "advance" },
-    ]);
-    expect(await screen.findByText("Added 2 players")).toBeInTheDocument();
-    expect(screen.getByText("1 already in the queue (skipped)")).toBeInTheDocument();
+    // "juan" is already in the queue (as Juan): shown, but left out.
+    expect(within(dialog).getByText("Already in the queue: will be skipped")).toBeInTheDocument();
+    const everyone = within(dialog).getByRole("radiogroup", { name: "Skill level for everyone" });
+    fireEvent.click(within(everyone).getByRole("radio", { name: "Advanced" }));
+    // Remove Diego again with the ✕ on his row.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove Diego from the list" }));
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Add 1 player" }));
+    });
+
+    expect(bulkAddPlayers).toHaveBeenCalledWith("q1", [{ name: "Clark", skill: "advance" }]);
+  });
+
+  it("keeps the list when saving fails", async () => {
+    vi.mocked(bulkAddPlayers).mockRejectedValue({ code: "P0001", message: "Add at most 100 players at a time" });
+    renderApp(routes, "/queue/q1");
+
+    fireEvent.click((await screen.findAllByRole("button", { name: "Add Player" }))[0]);
+    const dialog = screen.getByRole("dialog", { name: "Add Players" });
+    fireEvent.change(within(dialog).getByLabelText("Player name"), { target: { value: "Pedro" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add to list" }));
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Add 1 player" }));
+    });
+
+    expect(await screen.findByText("Add at most 100 players at a time")).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getByText("Pedro")).toBeInTheDocument();
   });
 
   it("removes a player after confirming", async () => {
@@ -150,6 +169,9 @@ describe("queue page players", () => {
     renderApp(routes, "/queue/q1");
 
     const sidebar = await screen.findByRole("complementary", { name: "Players" });
+    // Actions show after tapping the row.
+    expect(within(sidebar).queryByRole("button", { name: "Remove Juan" })).not.toBeInTheDocument();
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Show details for Juan" }));
     fireEvent.click(within(sidebar).getByRole("button", { name: "Remove Juan" }));
     expect(screen.getByText("Remove Juan from the queue?")).toBeInTheDocument();
     await act(async () => {
@@ -160,22 +182,30 @@ describe("queue page players", () => {
   });
 
   it("puts a player on break", async () => {
-    vi.mocked(setPlayerPaused).mockResolvedValue();
+    // The database answers with the updated player; it shows right away.
+    vi.mocked(setPlayerPaused).mockResolvedValue(makePlayer(1, "Juan", { is_paused: true }));
     renderApp(routes, "/queue/q1");
 
     const sidebar = await screen.findByRole("complementary", { name: "Players" });
+    // What the database holds after the change (for the background reload).
+    vi.mocked(listPlayers).mockResolvedValue([makePlayer(1, "Juan", { is_paused: true }), makePlayer(2, "Maria", { is_playing: true })]);
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Show details for Juan" }));
     await act(async () => {
       fireEvent.click(within(sidebar).getByRole("button", { name: "Take Break" }));
     });
 
     expect(setPlayerPaused).toHaveBeenCalledWith("q1", 1, true);
     expect(await screen.findByText("Juan paused")).toBeInTheDocument();
+    // The row closes after an action; its status already says On Break.
+    const juanRow = within(sidebar).getByRole("button", { name: "Show details for Juan" });
+    expect(within(juanRow).getByText("On Break")).toBeInTheDocument();
   });
 
   it("does not offer actions for a player on court", async () => {
     renderApp(routes, "/queue/q1");
 
     const sidebar = await screen.findByRole("complementary", { name: "Players" });
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Show details for Maria" }));
     expect(within(sidebar).queryByRole("button", { name: "Remove Maria" })).not.toBeInTheDocument();
     expect(within(sidebar).getByText("Currently on court.")).toBeInTheDocument();
   });
@@ -184,7 +214,8 @@ describe("queue page players", () => {
     renderApp(routes, "/queue/q1");
 
     fireEvent.click(await screen.findByRole("button", { name: "Players" }));
-    const table = screen.getByRole("table");
+    // Billed totals load when the Players tab opens.
+    const table = await screen.findByRole("table");
     expect(within(table).getByText("Total Billed")).toBeInTheDocument();
     expect(within(table).getByText("₱50")).toBeInTheDocument();
     expect(within(table).getByRole("button", { name: "Remove Maria" })).toBeDisabled();

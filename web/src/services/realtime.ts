@@ -1,14 +1,20 @@
 import { supabase } from "@/services/supabase";
 
+// What a "queue_changed" message says: the queue's new version, or that it was deleted.
+export interface QueueChange {
+  version?: number;
+  deleted?: boolean;
+}
+
 // Live updates (replaces the old 10-second polling + BroadcastChannel).
 //
 // Every change to a queue bumps its version; a database trigger then sends a
 // tiny "queue_changed" message on the private channel "queue:<id>" (see the
-// step 11 migration). The message has no data in it: listeners just reload.
+// step 11 migration). The message has no queue data in it: listeners reload.
 //
-// onChange is also called when the channel reconnects, so anything that
-// changed while the connection was down is picked up too.
-export function subscribeToQueueChanges(queueId: string, onChange: () => void): () => void {
+// onChange is also called (without a change) when the channel reconnects, so
+// anything that changed while the connection was down is picked up too.
+export function subscribeToQueueChanges(queueId: string, onChange: (change?: QueueChange) => void): () => void {
   let channel: ReturnType<typeof supabase.channel> | null = null;
   let stopped = false;
   let connectedBefore = false;
@@ -21,7 +27,7 @@ export function subscribeToQueueChanges(queueId: string, onChange: () => void): 
 
     channel = supabase
       .channel(`queue:${queueId}`, { config: { private: true } })
-      .on("broadcast", { event: "queue_changed" }, () => onChange())
+      .on("broadcast", { event: "queue_changed" }, (message) => onChange(message.payload as QueueChange))
       .subscribe((status) => {
         if (status !== "SUBSCRIBED") return;
         // The first connect happens right after the page loaded its data.

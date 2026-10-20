@@ -9,7 +9,7 @@ function waitingLabel(count: number) {
 
 function MatchLine({ match, mode }: { match: MatchWithPlayers; mode: GameMode }) {
   return (
-    <p className="mt-3 text-lg font-black leading-tight text-slate-900">
+    <p className="mt-1.5 text-lg font-black leading-tight text-slate-900">
       <span>{formatTeamLabel(teamPlayers(match, 1), mode)}</span>
       <span className="mx-2 align-middle text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">vs</span>
       <span>{formatTeamLabel(teamPlayers(match, 2), mode)}</span>
@@ -17,8 +17,11 @@ function MatchLine({ match, mode }: { match: MatchWithPlayers; mode: GameMode })
   );
 }
 
-// "Up Next" under the courts: the first 3 queued matches + "View all"
-// (ported from the old QueueCourtsTab).
+// "Up Next" under the courts: the first 3 queued matches + "View all" (ported
+// from the old QueueCourtsTab). No big box around it: the cards use the same
+// columns as the court cards above, so they line up and nothing stretches
+// across the screen. Always shown, also when nothing is waiting, so the layout
+// doesn't jump when the last queued match starts (e.g. after adding a court).
 export function UpNextSection({
   matches,
   mode,
@@ -28,34 +31,40 @@ export function UpNextSection({
   mode: GameMode;
   onViewAll: () => void;
 }) {
-  if (matches.length === 0) return null;
   const visible = matches.slice(0, 3);
 
   return (
-    <section aria-label="Up Next" className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-600">Up Next</p>
-          <span className="text-xs font-semibold text-indigo-600">{waitingLabel(matches.length)}</span>
-        </div>
+    <section aria-label="Up Next" className="@container">
+      <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1 px-1">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-600">Up Next</p>
+        {matches.length > 0 && <span className="text-xs font-semibold text-indigo-600">{waitingLabel(matches.length)}</span>}
         {/* Old app showed this only with 4+ matches, so 1–3 queued matches
-            could never be removed. Now it's always there. */}
-        <button
-          type="button"
-          onClick={onViewAll}
-          className="inline-flex items-center rounded-xl border border-indigo-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 cursor-pointer"
-        >
-          View all
-        </button>
+            could never be removed. Now it's there whenever a match waits. */}
+        {matches.length > 0 && (
+          <button
+            type="button"
+            onClick={onViewAll}
+            className="inline-flex items-center rounded-xl border border-indigo-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 cursor-pointer"
+          >
+            View all
+          </button>
+        )}
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-        {visible.map((match) => (
-          <div key={match.id} className="rounded-[28px] border border-indigo-100 bg-white px-4 py-4 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Match {match.queue_order}</p>
-            <MatchLine match={match} mode={mode} />
-          </div>
-        ))}
+      {/* Same columns as the courts grid (1 / 2 / 3 per row). */}
+      <div className="mt-2 grid grid-cols-1 gap-3 @lg:grid-cols-2 @3xl:grid-cols-3">
+        {visible.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/40 px-4 py-4 text-center text-sm text-slate-500">
+            No matches waiting.
+          </p>
+        ) : (
+          visible.map((match) => (
+            <div key={match.id} className="rounded-2xl border border-indigo-100 bg-indigo-50/40 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Match {match.queue_order}</p>
+              <MatchLine match={match} mode={mode} />
+            </div>
+          ))
+        )}
       </div>
     </section>
   );

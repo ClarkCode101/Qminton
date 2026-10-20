@@ -69,7 +69,7 @@ function CourtCard({
         style={{
           background: isAvailable ? "#2d8a4e" : "#1a7a3a",
           aspectRatio: "13.4 / 6.1",
-          maxHeight: tightCompact ? "90px" : compact ? "112px" : "138px",
+          maxHeight: tightCompact ? "90px" : compact ? "112px" : "124px",
         }}
       >
         <div className="absolute inset-1 border-2 border-white/90">
@@ -88,16 +88,24 @@ function CourtCard({
           <>
             {(
               [
-                { label: "Team 1", side: "left-[14%]", team: court.team1 },
-                { label: "Team 2", side: "right-[14%]", team: court.team2 },
+                { label: "Team 1", side: "left-1/4", team: court.team1 },
+                { label: "Team 2", side: "left-3/4", team: court.team2 },
               ] as const
             ).map(({ label, side, team }) => (
-              <div key={label} className={`absolute ${side} top-1/2 -translate-y-1/2 flex flex-col items-center z-10 text-center px-1`}>
-                <span className="text-[8px] font-bold text-white/65 uppercase tracking-[0.22em] leading-none mb-0.5">{label}</span>
+              // Centered in each half, on a dark backing so court lines never cross the names.
+              <div
+                key={label}
+                className={`absolute ${side} top-1/2 z-10 flex max-w-[44%] -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-lg bg-slate-950/25 text-center ${
+                  tightCompact ? "px-1.5 py-1" : "px-2.5 py-1.5"
+                }`}
+              >
+                <span className={`${tightCompact ? "text-[10px]" : "text-[11px]"} mb-0.5 whitespace-nowrap font-bold uppercase leading-none tracking-[0.12em] text-white/85`}>
+                  {label}
+                </span>
                 {team.map((player) => (
                   <span
                     key={player.id}
-                    className={`${tightCompact ? "text-[13px]" : compact ? "text-sm" : "text-base"} font-black text-white leading-tight drop-shadow-md`}
+                    className={`${tightCompact ? "text-[13px]" : compact ? "text-sm" : "text-base"} max-w-full truncate font-black leading-tight text-white`}
                   >
                     {player.name}
                   </span>
@@ -112,7 +120,7 @@ function CourtCard({
       {!isAvailable ? (
         <div className={`${tightCompact ? "px-2.5 py-1.5" : compact ? "px-3 py-2" : "px-4 py-3"} flex items-center justify-between gap-3 border-t border-amber-100 bg-white`}>
           <div className="flex flex-col">
-            <span className={`${tightCompact ? "text-[8px]" : compact ? "text-[9px]" : "text-[10px]"} text-slate-400 leading-none mb-0.5`}>Playing for</span>
+            <span className={`${tightCompact ? "text-[10px]" : "text-[11px]"} mb-0.5 leading-none text-slate-500`}>Playing for</span>
             <span className={`${tightCompact ? "text-[13px]" : compact ? "text-sm" : "text-base"} font-bold text-amber-600 tabular-nums leading-none`}>
               {elapsed || "—"}
             </span>
@@ -129,7 +137,7 @@ function CourtCard({
         </div>
       ) : (
         <div className={`${tightCompact ? "px-2.5 py-1.5" : compact ? "px-3 py-2" : "px-4 py-3"} border-t border-slate-100 bg-white`}>
-          <span className={`${tightCompact ? "text-[10px]" : compact ? "text-[11px]" : "text-xs"} text-slate-400`}>Ready for next match</span>
+          <span className={`${tightCompact ? "text-[11px]" : "text-xs"} text-slate-500`}>Ready for next match</span>
         </div>
       )}
     </div>
@@ -144,22 +152,25 @@ interface Props {
   dense?: boolean;
 }
 
-// Ported from the old CourtsGrid. Used read-only by the empty home workspace
-// now; the live Courts tab (later steps) uses it with Finish Game.
+// Ported from the old CourtsGrid: the Courts tab (with Finish Game), the
+// courts overlay, the public display and the empty home workspace (read-only).
 export function CourtsGrid({ courts, onFinish, readOnly = false, compact = false, dense = false }: Props) {
+  const cards = courts.map((court) => (
+    <CourtCard key={court.courtNo} court={court} onFinish={onFinish} readOnly={readOnly} compact={compact} dense={dense} />
+  ));
+
+  if (compact) {
+    return (
+      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${dense ? "gap-2" : "gap-2.5"}`}>{cards}</div>
+    );
+  }
+
+  // Courts per row follow the space the courts actually get (container query),
+  // not the screen: next to the players panel on an iPad in portrait there is
+  // room for 1, on a tablet in landscape 2, on a laptop 3.
   return (
-    <div
-      className={`grid ${
-        compact
-          ? dense
-            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-0"
-            : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 mb-0"
-          : "grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4 mb-0"
-      }`}
-    >
-      {courts.map((court) => (
-        <CourtCard key={court.courtNo} court={court} onFinish={onFinish} readOnly={readOnly} compact={compact} dense={dense} />
-      ))}
+    <div className="@container">
+      <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2 @3xl:grid-cols-3">{cards}</div>
     </div>
   );
 }

@@ -1,5 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 
+import { CloseButton } from "@/components/close-button";
+import { MoreMenu } from "@/components/more-menu";
 import { OverlayPanel } from "@/components/overlay-panel";
 import { CourtsGrid } from "@/features/courts/courts-grid";
 import { MatchLogList } from "@/features/matchmaking/match-log";
@@ -32,28 +34,19 @@ interface Props {
   onMoveToBottom: (player: Player) => void;
 }
 
-const sidebarButtonClass =
-  "group relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sky-100 bg-white text-slate-500 transition-colors hover:border-sky-200 hover:text-blue-600 focus-visible:outline-none focus-visible:border-sky-200 focus-visible:text-blue-600 cursor-pointer";
-
-function SidebarButton({ label, onClick, className = sidebarButtonClass, children }: { label: string; onClick: () => void; className?: string; children: ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} aria-label={label} className={className}>
-      {children}
-      <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-950 px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
-        {label}
-      </span>
-    </button>
-  );
-}
+// "Expand" / "Hide" next to Add Player: words instead of look-alike icons, and
+// as tall as Add Player (40px) so they are easy to hit on a tablet.
+const viewActionClass =
+  "inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 cursor-pointer md:flex-none";
 
 function RateChip({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
   return (
     <span
-      className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1 text-slate-700 ${
+      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 py-1 text-slate-700 sm:gap-2 sm:px-3 ${
         muted ? "border-slate-200 bg-white shadow-sm" : "border-sky-100 bg-sky-50/70"
       }`}
     >
-      <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${muted ? "text-slate-500" : "text-sky-700"}`}>{label}</span>
+      <span className={`text-[11px] font-semibold uppercase tracking-[0.06em] sm:tracking-[0.14em] ${muted ? "text-slate-500" : "text-sky-700"}`}>{label}</span>
       <span className={`h-3.5 w-px ${muted ? "bg-slate-200" : "bg-sky-100"}`} aria-hidden="true" />
       <span className="font-semibold text-slate-900">{value}</span>
     </span>
@@ -140,16 +133,8 @@ export function CourtsTab({
               {...playerHandlers}
               presentation="expanded"
               headerActions={
-                <SidebarButton
-                  label="Close expanded players"
-                  onClick={() => setPlayersExpanded(false)}
-                  className="group relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-rose-200 bg-white text-rose-500 shadow-sm transition-colors hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 cursor-pointer"
-                >
-                  <svg className="h-8 w-8" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                    <path d="m6 6 8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                    <path d="m14 6-8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                  </svg>
-                </SidebarButton>
+                // Same ✕ as the other overlays; no hover label (it was cut off at the panel's edge).
+                <CloseButton label="Close expanded players" onClick={() => setPlayersExpanded(false)} />
               }
             />
           </div>
@@ -171,27 +156,32 @@ export function CourtsTab({
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-500">Live Courts</p>
                     <div className="mt-1 flex flex-wrap items-end gap-x-3 gap-y-1.5">
-                      <h1 className="truncate text-xl font-black tracking-tight text-slate-900 sm:text-[1.55rem]">{queue.name}</h1>
-                      <div className="flex flex-wrap items-center gap-2 text-[13px] sm:text-sm">
+                      <h1 className="min-w-0 break-words text-xl font-black tracking-tight text-slate-900 sm:text-[1.55rem]">{queue.name}</h1>
+                      <div className="flex flex-wrap items-center gap-1.5 text-[13px] sm:gap-2 sm:text-sm">
                         <RateChip label="Shuttle/Game" value={formatCurrency(queue.game_rate)} />
                         <RateChip label="Court Fee" value={formatCurrency(queue.court_fee)} muted />
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto md:justify-end">
+                  <div className="flex w-full gap-2 md:w-auto md:justify-end">
                     <button
                       type="button"
                       onClick={onStartMatch}
                       disabled={matchAction.disabled || isStartingMatch}
-                      className="inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-blue-600 px-4.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto md:min-w-40"
+                      className={`inline-flex min-h-10 flex-1 items-center justify-center rounded-xl px-4.5 text-sm font-semibold transition-colors md:min-w-40 md:flex-none ${
+                        matchAction.disabled
+                          ? // Can not start yet: neutral and readable, the label says why.
+                            "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-500"
+                          : "bg-blue-600 text-white shadow-sm hover:bg-blue-700 cursor-pointer disabled:cursor-wait disabled:opacity-70"
+                      }`}
                     >
                       {isStartingMatch ? "Picking teams..." : matchAction.label}
                     </button>
                     <button
                       type="button"
                       onClick={onShowAddPlayer}
-                      className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 cursor-pointer md:hidden"
+                      className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 cursor-pointer md:hidden"
                     >
                       Add Player
                     </button>
@@ -201,10 +191,10 @@ export function CourtsTab({
                 {matchAction.blockedByRest && <p className="mt-1.5 text-sm text-slate-500">{matchAction.hint}</p>}
               </div>
 
-              <div className="p-5 sm:p-6 md:flex md:min-h-0 md:flex-1 md:flex-col">
+              <div className="p-3 sm:p-5 md:flex md:min-h-0 md:flex-1 md:flex-col">
                 <div className="mb-3 rounded-2xl border border-sky-100 bg-slate-50/80 px-3 py-2 md:shrink-0">
-                  <div className="flex flex-wrap items-center justify-between gap-2.5">
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                       <div className="inline-flex min-h-9 items-center gap-2 rounded-full border border-sky-200 bg-white px-2.5 py-1.5 text-slate-600 shadow-sm">
                         <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-500">Court Count</span>
                         <span className="h-4 w-px bg-sky-100" aria-hidden="true" />
@@ -232,7 +222,7 @@ export function CourtsTab({
                           </button>
                         </div>
                       </div>
-                      <div className="inline-flex items-center gap-2 px-1 py-1 text-sm font-medium text-slate-600">
+                      <div className="inline-flex items-center gap-2 px-1 text-sm font-medium text-slate-600">
                         <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
                         <span>
                           {activeCourts} of {courts.length} courts in use
@@ -249,12 +239,13 @@ export function CourtsTab({
 
                     <div className="flex flex-wrap items-center gap-2">
                       {playersCollapsed && (
+                        // Same pill as Match Log, with the count of players hidden away.
                         <button
                           type="button"
                           onClick={() => setPlayersCollapsed(false)}
-                          className="inline-flex min-h-10 items-center rounded-full border border-sky-300 bg-white px-4 py-2 text-sm font-bold text-sky-700 shadow-sm transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 cursor-pointer"
+                          className="inline-flex min-h-8 items-center justify-center rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 transition-colors hover:bg-sky-50 cursor-pointer"
                         >
-                          Show players
+                          Players ({players.length})
                         </button>
                       )}
                       <button
@@ -264,19 +255,25 @@ export function CourtsTab({
                       >
                         Match Log {matchLog.total > 0 ? `(${matchLog.total})` : ""}
                       </button>
-                      <button
-                        type="button"
-                        onClick={onShowResetMatchmaking}
-                        disabled={isResetting}
-                        className="inline-flex min-h-8 items-center justify-center rounded-full border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-500 transition-colors hover:border-rose-300 hover:bg-rose-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {isResetting ? "Resetting..." : "Reset Matchmaking"}
-                      </button>
+                      {/* Reset clears every court and Up Next: kept away from a stray tap. */}
+                      <MoreMenu
+                        label="More court actions"
+                        items={[
+                          {
+                            label: isResetting ? "Resetting..." : "Reset Matchmaking",
+                            tone: "danger",
+                            disabled: isResetting,
+                            onSelect: onShowResetMatchmaking,
+                          },
+                        ]}
+                      />
                     </div>
                   </div>
                 </div>
 
-                <div className="md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-1">
+                {/* Up Next always sits under the courts (owner's choice: a side column
+                    next to the courts was tried and looked worse with 4+ courts). */}
+                <div className="grid content-start gap-3 md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-1">
                   <CourtsGrid courts={courts} onFinish={onFinishCourt} />
                   <UpNextSection matches={queuedMatches} mode={queue.game_mode} onViewAll={() => setOverlay("up-next")} />
                 </div>
@@ -292,22 +289,14 @@ export function CourtsTab({
               <div className="md:min-h-0 md:flex-1">
                 <PlayerListPanel
                   {...playerHandlers}
-                  headerActions={
+                  viewActions={
                     <>
-                      <SidebarButton label="Hide players" onClick={() => setPlayersCollapsed(true)}>
-                        <svg className="h-6 w-6" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                          <rect x="3.25" y="4" width="13.5" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-                          <path d="M12.1 4v12" stroke="currentColor" strokeWidth="1.8" />
-                          <path d="m8.6 7.2 2.6 2.8-2.6 2.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </SidebarButton>
-                      <SidebarButton label="Expand players" onClick={() => setPlayersExpanded(true)}>
-                        <svg className="h-6 w-6" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                          <rect x="4" y="4" width="12" height="12" rx="2.4" stroke="currentColor" strokeWidth="1.8" />
-                          <path d="M8 12V8h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M12 8 8 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                        </svg>
-                      </SidebarButton>
+                      <button type="button" onClick={() => setPlayersExpanded(true)} aria-label="Expand players" className={viewActionClass}>
+                        Expand
+                      </button>
+                      <button type="button" onClick={() => setPlayersCollapsed(true)} aria-label="Hide players" className={viewActionClass}>
+                        Hide
+                      </button>
                     </>
                   }
                 />

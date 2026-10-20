@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useId } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
+import { CloseButton } from "@/components/close-button";
 import {
   newQueueFormSchema,
   type NewQueueFormInput,
@@ -90,17 +91,7 @@ export function NewQueueModal({ onCreate, onClose }: Props) {
             <p className="mt-1.5 text-sm leading-5 text-slate-500">Set up a fresh board for your next session.</p>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-100 bg-white text-slate-400 transition-colors hover:border-sky-200 hover:bg-sky-50 hover:text-slate-600 cursor-pointer"
-            aria-label="Close new queue modal"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <CloseButton label="Close new queue modal" onClick={onClose} disabled={isSubmitting} size="sm" />
         </div>
 
         <div className="mt-5 space-y-4">

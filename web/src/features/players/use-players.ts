@@ -4,7 +4,6 @@ import { queueKeys } from "@/features/queues/use-queues";
 import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/services/errors";
 import {
-  addPlayer,
   bulkAddPlayers,
   listPlayerBilledTotals,
   listPlayers,
@@ -24,37 +23,34 @@ export function usePlayers(queueId: string) {
   return useQuery({ queryKey: playerKeys.list(queueId), queryFn: () => listPlayers(queueId) });
 }
 
-export function usePlayerBilledTotals(queueId: string) {
-  return useQuery({ queryKey: playerKeys.billed(queueId), queryFn: () => listPlayerBilledTotals(queueId) });
+// Only needed by the Players tab table (enabled = false on the other tabs).
+export function usePlayerBilledTotals(queueId: string, { enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: playerKeys.billed(queueId), queryFn: () => listPlayerBilledTotals(queueId), enabled });
 }
 
 // All player actions for one queue. After any change, the players list, the
-// billed totals and the landing page counts are reloaded. Messages match the
-// old app; errors show the database's readable message.
+// billed totals and the landing page counts are reloaded in the background
+// (the result shows right away, without waiting for the reload). Messages
+// match the old app; errors show the database's readable message.
 export function usePlayerActions(queueId: string) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  const refresh = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: playerKeys.list(queueId) }),
-      queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true }),
-    ]);
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: playerKeys.list(queueId) });
+    // The queue row too: its new version lets the live update skip this change's echo.
+    void queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId), exact: true });
+    void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
+  };
 
   const onError = (fallback: string) => (error: unknown) => {
     showToast(toUserMessage(error, fallback), "error");
   };
 
-  const add = useMutation({
-    mutationFn: (player: NewPlayer) => addPlayer(queueId, player),
-    onSuccess: refresh,
-    onError: onError("Failed to add player"),
-  });
-
   const bulkAdd = useMutation({
     mutationFn: (players: NewPlayer[]) => bulkAddPlayers(queueId, players),
-    onSuccess: async (added, requested) => {
-      await refresh();
+    onSuccess: (added, requested) => {
+      refresh();
       const skipped = requested.length - added.length;
       showToast(
         `Added ${added.length} player${added.length !== 1 ? "s" : ""}` +
@@ -73,8 +69,14 @@ export function usePlayerActions(queueId: string) {
 
   const togglePause = useMutation({
     mutationFn: (player: Player) => setPlayerPaused(queueId, player.id, !player.is_paused),
-    onSuccess: async (_result, player) => {
-      await refresh();
+    onSuccess: (updated, player) => {
+      // Show the new status at once, so a second tap acts on the right state.
+      if (updated) {
+        queryClient.setQueryData<Player[]>(playerKeys.list(queueId), (list) =>
+          list?.map((item) => (item.id === updated.id ? updated : item)),
+        );
+      }
+      refresh();
       showToast(`${player.name} ${player.is_paused ? "resumed" : "paused"}`, "success");
     },
     onError: onError("Failed to update player status"),
@@ -82,12 +84,12 @@ export function usePlayerActions(queueId: string) {
 
   const moveToBottom = useMutation({
     mutationFn: (player: Player) => movePlayerToBottom(queueId, player.id),
-    onSuccess: async () => {
-      await refresh();
+    onSuccess: () => {
+      refresh();
       showToast("Player moved to bottom", "success");
     },
     onError: onError("Failed to move player"),
   });
 
-  return { add, bulkAdd, remove, togglePause, moveToBottom };
+  return { bulkAdd, remove, togglePause, moveToBottom };
 }

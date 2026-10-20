@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { pickMatch, type EnginePlayer } from "@/features/matchmaking/engine";
 import { buildMatchToastMessage } from "@/features/matchmaking/match-view";
@@ -18,6 +18,9 @@ import type { Player } from "@/services/players";
 
 // Both keys start with ["queues", queueId], so any change to the queue
 // (which invalidates queueKeys.detail) also refreshes them.
+//
+// Speed: each action shows its result as soon as the database has saved it,
+// and the screen reloads in the background (it used to wait for the reload).
 export const matchKeys = {
   active: (queueId: string) => ["queues", queueId, "matches"] as const,
   history: (queueId: string) => ["queues", queueId, "history"] as const,
@@ -37,6 +40,12 @@ function toEnginePlayer(player: Player): EnginePlayer {
     isPaused: player.is_paused,
     restGamesNeeded: player.rest_games_needed,
   };
+}
+
+// Reloads this queue's data (and the landing page list) without waiting for it.
+function reloadQueue(queryClient: QueryClient, queueId: string) {
+  void queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
+  void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
 }
 
 export function useActiveMatches(queueId: string) {
@@ -89,10 +98,9 @@ export function useStartNextMatch(queueId: string) {
         }
       }
     },
-    onSuccess: async ({ result, pick, mode }) => {
-      await queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
-      void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
+    onSuccess: ({ result, pick, mode }) => {
       showToast(buildMatchToastMessage(mode, result, pick.team1, pick.team2, pick.balanceText), "success");
+      reloadQueue(queryClient, queueId);
     },
     onError: (error) => {
       showToast(toUserMessage(error, "Failed to create match"), "error");
@@ -107,15 +115,14 @@ export function useFinishGame(queueId: string) {
 
   return useMutation({
     mutationFn: ({ courtNo, matchId }: { courtNo: number; matchId: string }) => finishGame(queueId, courtNo, matchId),
-    onSuccess: async (message) => {
-      await queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
-      void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
+    onSuccess: (message) => {
       showToast(message, "success");
+      reloadQueue(queryClient, queueId);
     },
-    onError: async (error) => {
-      // The court may have changed under us: show the latest state.
-      await queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
+    onError: (error) => {
       showToast(toUserMessage(error, "Failed to finish game"), "error");
+      // The court may have changed under us: show the latest state.
+      reloadQueue(queryClient, queueId);
     },
   });
 }
@@ -126,10 +133,9 @@ export function useResetMatchmaking(queueId: string) {
 
   return useMutation({
     mutationFn: (includePlayersOnBreak: boolean) => resetMatchmaking(queueId, includePlayersOnBreak),
-    onSuccess: async (message) => {
-      await queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
-      void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
+    onSuccess: (message) => {
       showToast(message, "success");
+      reloadQueue(queryClient, queueId);
     },
     onError: (error) => {
       showToast(toUserMessage(error, "Failed to reset matchmaking"), "error");
@@ -143,9 +149,9 @@ export function useCancelQueuedMatch(queueId: string) {
 
   return useMutation({
     mutationFn: (matchId: string) => cancelQueuedMatch(queueId, matchId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
+    onSuccess: () => {
       showToast("Queued match cancelled", "success");
+      reloadQueue(queryClient, queueId);
     },
     onError: (error) => {
       showToast(toUserMessage(error, "Failed to cancel queued match"), "error");

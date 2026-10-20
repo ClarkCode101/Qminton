@@ -33,17 +33,18 @@ export function useCreateQueue() {
   });
 }
 
-// Court count / billing setup changes. Reloads this queue and everything under
-// its key (players, and matches later), plus the landing page list.
+// Court count / billing setup changes. The saved settings show at once; this
+// queue and everything under its key (players, matches, billing) and the
+// landing page list reload in the background.
 export function useUpdateQueueSettings(queueId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (settings: QueueSettingsUpdate) => updateQueueSettings(queueId, settings),
-    onSuccess: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) }),
-        queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true }),
-      ]),
+    onSuccess: (queue) => {
+      if (queue) queryClient.setQueryData(queueKeys.detail(queueId), queue);
+      void queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
+      void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
+    },
   });
 }
 

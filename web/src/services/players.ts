@@ -33,18 +33,8 @@ export async function listPlayerBilledTotals(queueId: string): Promise<Map<numbe
   return new Map(data.map((row) => [row.player_id ?? 0, row.billed_total ?? 0]));
 }
 
-// Single add: a blank or duplicate name is an error ("Player already exists").
-export async function addPlayer(queueId: string, player: NewPlayer): Promise<Player> {
-  const { data, error } = await supabase.rpc("add_players", {
-    p_queue_id: queueId,
-    p_players: [{ name: player.name, skill: player.skill }],
-    p_skip_duplicates: false,
-  });
-  if (error) throw error;
-  return data[0];
-}
-
-// Bulk add: blank and duplicate names are skipped. Returns only the added players.
+// Adds one or many players (the Add Players list). Blank and duplicate names
+// are skipped. Returns only the added players.
 export async function bulkAddPlayers(queueId: string, players: NewPlayer[]): Promise<Player[]> {
   const { data, error } = await supabase.rpc("add_players", {
     p_queue_id: queueId,
@@ -60,14 +50,15 @@ export async function removePlayer(queueId: string, playerId: number): Promise<v
   if (error) throw error;
 }
 
-// paused = true -> "Take Break", false -> "Mark Ready".
-export async function setPlayerPaused(queueId: string, playerId: number, paused: boolean): Promise<void> {
-  const { error } = await supabase.rpc("set_player_paused", {
+// paused = true -> "Take Break", false -> "Mark Ready". Returns the updated player.
+export async function setPlayerPaused(queueId: string, playerId: number, paused: boolean): Promise<Player> {
+  const { data, error } = await supabase.rpc("set_player_paused", {
     p_queue_id: queueId,
     p_player_id: playerId,
     p_paused: paused,
   });
   if (error) throw error;
+  return data;
 }
 
 export async function movePlayerToBottom(queueId: string, playerId: number): Promise<void> {

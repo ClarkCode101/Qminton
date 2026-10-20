@@ -28,15 +28,18 @@ import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/services/errors";
 import type { MatchWithPlayers } from "@/services/matches";
 import type { Player } from "@/services/players";
+import type { Queue } from "@/services/queues";
 
 // Organizer view of one queue (ported from the old app/queue/page.tsx):
 // Courts tab, Players tab table, Billing tab. Changes made on another device
 // show up live (Realtime), like the old 10-second refresh but right away.
 export function QueuePage() {
   const { queueId = "" } = useParams();
+  const [activeTab, setActiveTab] = useState<NavTab>("courts");
   const queueQuery = useQueue(queueId);
   const playersQuery = usePlayers(queueId);
-  const billedQuery = usePlayerBilledTotals(queueId);
+  // Tab-only data loads when its tab is open, so the Courts tab reloads less.
+  const billedQuery = usePlayerBilledTotals(queueId, { enabled: activeTab === "players" });
   const actions = usePlayerActions(queueId);
   const updateSettings = useUpdateQueueSettings(queueId);
   const matchesQuery = useActiveMatches(queueId);
@@ -45,19 +48,22 @@ export function QueuePage() {
   const cancelQueued = useCancelQueuedMatch(queueId);
   const finishGame = useFinishGame(queueId);
   const resetMatchmaking = useResetMatchmaking(queueId);
-  const ledgerQuery = useLedger(queueId);
-  const billingPlayersQuery = useBillingPlayers(queueId);
+  const ledgerQuery = useLedger(queueId, { enabled: activeTab === "billing" });
+  const billingPlayersQuery = useBillingPlayers(queueId, { enabled: activeTab === "billing" });
   const billingActions = useBillingActions(queueId);
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  // Everything under ["queues", id] (players, matches, log, billing) reloads.
-  useQueueLiveUpdates(queueId, () => {
+  // Everything under ["queues", id] (players, matches, log, billing) reloads,
+  // unless this screen already shows that version (e.g. our own change, which
+  // was reloaded right after saving).
+  useQueueLiveUpdates(queueId, (latestVersion) => {
+    const shown = queryClient.getQueryData<Queue | null>(queueKeys.detail(queueId));
+    if (latestVersion !== undefined && shown && shown.version >= latestVersion) return;
     void queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
     void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
   });
   const [showResetDialog, setShowResetDialog] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<NavTab>("courts");
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [playerToRemove, setPlayerToRemove] = useState<Player | null>(null);
   const [matchToCancel, setMatchToCancel] = useState<MatchWithPlayers | null>(null);
@@ -161,11 +167,9 @@ export function QueuePage() {
     <div className="flex h-screen flex-col overflow-hidden">
       {showAddPlayer && (
         <AddPlayerModal
-          onAdd={async (player) => {
-            await actions.add.mutateAsync(player);
-            setShowAddPlayer(false);
-          }}
-          onBulkAdd={async (newPlayers) => {
+          existingNames={players.map((player) => player.name)}
+          onAdd={async (newPlayers) => {
+            // One call for 1 or many (names already in the queue are skipped).
             await actions.bulkAdd.mutateAsync(newPlayers);
             setShowAddPlayer(false);
           }}
@@ -231,7 +235,11 @@ export function QueuePage() {
       {activeTab === "players" && (
         <div className="app-shell-safe-bottom flex-1 overflow-y-auto p-6">
           <h2 className="mb-4 text-lg font-semibold text-slate-600">Player Statistics</h2>
-          <PlayerStatsTable players={players} billedByPlayerId={billedQuery.data ?? new Map()} onRemove={setPlayerToRemove} />
+          {billedQuery.isPending ? (
+            <p className="text-sm text-slate-500">Loading...</p>
+          ) : (
+            <PlayerStatsTable players={players} billedByPlayerId={billedQuery.data ?? new Map()} onRemove={setPlayerToRemove} />
+          )}
         </div>
       )}
 
