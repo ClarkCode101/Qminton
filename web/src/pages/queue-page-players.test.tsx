@@ -17,6 +17,7 @@ import { renderApp } from "@/test/render-app";
 // Never talk to the real Supabase in tests.
 vi.mock("@/services/queues", () => ({ getQueue: vi.fn(), listQueues: vi.fn(async () => []) }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
+vi.mock("@/services/billing", () => ({ listLedger: vi.fn(async () => []), listBillingPlayers: vi.fn(async () => []) }));
 vi.mock("@/services/matches", () => ({ listActiveMatches: vi.fn(async () => []), listMatchHistory: vi.fn(async () => ({ entries: [], total: 0 })) }));
 vi.mock("@/services/players", () => ({
   listPlayers: vi.fn(),

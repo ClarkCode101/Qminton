@@ -139,7 +139,33 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Step 10 in progress.
+Nothing. Next: step 11 (Display page + Realtime).
+
+### ✅ Step 10: Billing (SQL applied by the owner in the SQL Editor; owner OK 2026-10-20; committed)
+- Owner re-ran the dry-run in the SQL Editor (all 33 OK), then applied the migration there (like steps
+  4 and 8, not in Supabase's migration history). Verified read-only: 5 public functions (security definer,
+  authenticated only, anon blocked) + 6 private helpers (no API access). Generated types = hand-written ones.
+- DB `20261024120000_billing.sql` (old backend rules + messages): `record_payment(queue, player, amount?,
+  note?, method?, reference?)` (no amount = whole balance, note "Marked as paid" / "Partial payment"; >0 and
+  ≤ balance), `record_bulk_payment(queue, ids[], …)` (dedupes ids; any player with nothing due = nothing
+  saved, "{name} has no unpaid balance"), `reverse_latest_payment` (stack rule, note "Reversed payment: …"),
+  `add_adjustment` (note required, non-zero), `add_shared_fee` (split, leftover to the first players, zero
+  shares skipped). New private helpers `get_queue_player` (includes removed players), `player_outstanding`,
+  `optional_text`, `check_billing_amount`, `check_billing_note`, `insert_payment`. All lock + touch the queue.
+- Dry-run `supabase/dry-runs/20261024_billing_dry_run.sql` (exact copy of the migration + 33 checks) ran via
+  MCP `execute_sql` on 2026-10-20: all OK, rolled back.
+- `database.ts`: the 5 functions added by hand in the generator's format (regenerate after applying).
+- Frontend: `services/billing.ts` (ledger, all players incl. removed, 5 RPCs); `features/billing/`:
+  `billing-roster.ts` (rows, stack undo, filters/sorts, totals, split, CSV, share text),
+  `billing-form-schema.ts` (Zod amounts/notes/references), `use-billing.ts`, `payment-details-fields.tsx`,
+  `payment-dialogs.tsx`, `billing-roster-table.tsx`, `billing-tools.tsx`, `billing-activity.tsx`,
+  `billing-tab.tsx` (old Billing workspace layout; Billing setup now opens from the Tools menu like the old app).
+- Behavior changes: removed players with a billing record stay in the roster ("Removed" badge) and can pay /
+  be undone / be adjusted (bug #2); amounts are text inputs with whole-peso errors (bug #5); adjustment /
+  shared fee max ₱100,000, note max 300, reference max 80; CSV escapes text starting with = + - @ (formula
+  injection); negative money shows "-₱20" (was "₱-20" in our helper); small labels 10px → 11px and
+  slate-400 → slate-500 (same contrast fix as landing).
+- Tests: 119 passing.
 
 ### ✅ Step 9: Match Log (frontend only, no SQL; owner OK 2026-10-20; committed)
 - No migration needed: RLS already lets the owner read `matches` + `match_players`.
@@ -319,7 +345,7 @@ Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, create
 7. ~~Matchmaking: TS scorer + tests ported from pytest (seeded RNG), start/queue match RPC, Up Next, cancel queued match~~
 8. ~~Finish game + rest logic + auto-start next pending; reset matchmaking~~
 9. ~~Match log~~
-10. Billing: ledger, adjustments, shared fee, full/partial/bulk payment, undo, CSV, share summary
+10. ~~Billing: ledger, adjustments, shared fee, full/partial/bulk payment, undo, CSV, share summary~~
 11. Display page + Supabase Realtime (replaces 10s polling + BroadcastChannel)
 12. (Skipped: data migration, clean DB chosen)
 13. Cloudflare config, README, feature checklist

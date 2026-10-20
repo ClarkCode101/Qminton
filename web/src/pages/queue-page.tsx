@@ -7,6 +7,7 @@ import { ConfirmActionModal } from "@/components/confirm-action-modal";
 import { FullScreenMessage } from "@/components/full-screen-message";
 import { LoadError } from "@/components/load-error";
 import { BillingTab } from "@/features/billing/billing-tab";
+import { useBillingActions, useBillingPlayers, useLedger } from "@/features/billing/use-billing";
 import { CourtsTab } from "@/features/courts/courts-tab";
 import { ResetMatchmakingDialog } from "@/features/matchmaking/reset-matchmaking-dialog";
 import {
@@ -26,9 +27,8 @@ import { toUserMessage } from "@/services/errors";
 import type { MatchWithPlayers } from "@/services/matches";
 import type { Player } from "@/services/players";
 
-// Organizer view of one queue (ported from the old app/queue/page.tsx).
-// So far: Courts tab layout + players sidebar + court count (steps 5–6),
-// Players tab table, Billing setup. The rest of Billing arrives in step 10.
+// Organizer view of one queue (ported from the old app/queue/page.tsx):
+// Courts tab, Players tab table, Billing tab.
 export function QueuePage() {
   const { queueId = "" } = useParams();
   const queueQuery = useQueue(queueId);
@@ -42,6 +42,9 @@ export function QueuePage() {
   const cancelQueued = useCancelQueuedMatch(queueId);
   const finishGame = useFinishGame(queueId);
   const resetMatchmaking = useResetMatchmaking(queueId);
+  const ledgerQuery = useLedger(queueId);
+  const billingPlayersQuery = useBillingPlayers(queueId);
+  const billingActions = useBillingActions(queueId);
   const { showToast } = useToast();
   const [showResetDialog, setShowResetDialog] = useState(false);
 
@@ -223,7 +226,28 @@ export function QueuePage() {
         </div>
       )}
 
-      {activeTab === "billing" && <BillingTab queue={queue} onSaveBillingSetup={saveBillingSetup} />}
+      {activeTab === "billing" &&
+        (ledgerQuery.isError || billingPlayersQuery.isError ? (
+          <LoadError
+            message="Could not load billing. Check your connection and try again."
+            onRetry={() => {
+              void ledgerQuery.refetch();
+              void billingPlayersQuery.refetch();
+            }}
+          />
+        ) : ledgerQuery.isPending || billingPlayersQuery.isPending ? (
+          <div className="flex flex-1 items-center justify-center">
+            <p className="text-sm text-slate-500">Loading...</p>
+          </div>
+        ) : (
+          <BillingTab
+            queue={queue}
+            players={billingPlayersQuery.data}
+            ledger={ledgerQuery.data}
+            actions={billingActions}
+            onSaveBillingSetup={saveBillingSetup}
+          />
+        ))}
     </div>
   );
 }

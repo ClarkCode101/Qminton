@@ -24,6 +24,7 @@ vi.mock("@/services/players", () => ({
   listPlayers: vi.fn(),
   listPlayerBilledTotals: vi.fn(async () => new Map()),
 }));
+vi.mock("@/services/billing", () => ({ listLedger: vi.fn(async () => []), listBillingPlayers: vi.fn(async () => []) }));
 vi.mock("@/services/matches", () => ({
   listActiveMatches: vi.fn(),
   listMatchHistory: vi.fn(),

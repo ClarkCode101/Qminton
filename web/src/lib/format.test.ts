@@ -36,6 +36,7 @@ describe("formatRelativeDate", () => {
 describe("small formatters", () => {
   it("formats pesos and player counts", () => {
     expect(formatCurrency(1250)).toBe("₱1,250");
+    expect(formatCurrency(-20)).toBe("-₱20");
     expect(pluralizePlayer(1)).toBe("1 player");
     expect(pluralizePlayer(0)).toBe("0 players");
   });

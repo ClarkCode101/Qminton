@@ -12,6 +12,7 @@ vi.mock("@/services/queues", () => ({
   updateQueueSettings: vi.fn(),
 }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
+vi.mock("@/services/billing", () => ({ listLedger: vi.fn(async () => []), listBillingPlayers: vi.fn(async () => []) }));
 vi.mock("@/services/matches", () => ({ listActiveMatches: vi.fn(async () => []), listMatchHistory: vi.fn(async () => ({ entries: [], total: 0 })) }));
 vi.mock("@/services/players", () => ({
   listPlayers: vi.fn(async () => []),
@@ -80,7 +81,8 @@ describe("queue settings", () => {
     renderApp(routes, "/queue/q1");
 
     fireEvent.click(await screen.findByRole("button", { name: "Billing" }));
-    fireEvent.click(screen.getByRole("button", { name: "Billing setup" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Tools/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Billing setup/ }));
     const dialog = screen.getByRole("dialog", { name: "Billing setup" });
     const courtFee = within(dialog).getByLabelText("Court Fee per Player (₱)");
     const gameRate = within(dialog).getByLabelText("Shuttle Rate per Game (₱)");

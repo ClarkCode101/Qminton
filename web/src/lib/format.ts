@@ -2,8 +2,9 @@ import type { GameMode } from "@/services/queues";
 
 // Display helpers shared by several screens (same output as the old app).
 
+// Negative amounts (refunds, undone payments) read "-₱20", like the old app.
 export function formatCurrency(amount: number): string {
-  return `₱${amount.toLocaleString("en-PH")}`;
+  return `${amount < 0 ? "-" : ""}₱${Math.abs(amount).toLocaleString("en-PH")}`;
 }
 
 export function formatDateTime(iso: string): string {

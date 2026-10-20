@@ -437,6 +437,33 @@ export type Database = {
       }
     }
     Functions: {
+      add_adjustment: {
+        Args: {
+          p_amount: number
+          p_note: string
+          p_player_id: number
+          p_queue_id: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          entry_type: Database["public"]["Enums"]["ledger_entry_type"]
+          id: number
+          match_no: number | null
+          note: string
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference: string | null
+          player_id: number
+          player_name: string
+          queue_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ledger_entries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       add_players: {
         Args: {
           p_players: Json
@@ -461,6 +488,33 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "players"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      add_shared_fee: {
+        Args: {
+          p_note: string
+          p_player_ids: number[]
+          p_queue_id: string
+          p_total_amount: number
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          entry_type: Database["public"]["Enums"]["ledger_entry_type"]
+          id: number
+          match_no: number | null
+          note: string
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference: string | null
+          player_id: number
+          player_name: string
+          queue_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ledger_entries"
           isOneToOne: false
           isSetofReturn: true
         }
@@ -498,6 +552,63 @@ export type Database = {
         Args: { p_player_id: number; p_queue_id: string }
         Returns: undefined
       }
+      record_bulk_payment: {
+        Args: {
+          p_note?: string
+          p_payment_method?: Database["public"]["Enums"]["payment_method"]
+          p_payment_reference?: string
+          p_player_ids: number[]
+          p_queue_id: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          entry_type: Database["public"]["Enums"]["ledger_entry_type"]
+          id: number
+          match_no: number | null
+          note: string
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference: string | null
+          player_id: number
+          player_name: string
+          queue_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ledger_entries"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      record_payment: {
+        Args: {
+          p_amount?: number
+          p_note?: string
+          p_payment_method?: Database["public"]["Enums"]["payment_method"]
+          p_payment_reference?: string
+          p_player_id: number
+          p_queue_id: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          entry_type: Database["public"]["Enums"]["ledger_entry_type"]
+          id: number
+          match_no: number | null
+          note: string
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference: string | null
+          player_id: number
+          player_name: string
+          queue_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ledger_entries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       remove_player: {
         Args: { p_player_id: number; p_queue_id: string }
         Returns: undefined
@@ -505,6 +616,28 @@ export type Database = {
       reset_matchmaking: {
         Args: { p_include_players_on_break?: boolean; p_queue_id: string }
         Returns: Json
+      }
+      reverse_latest_payment: {
+        Args: { p_player_id: number; p_queue_id: string }
+        Returns: {
+          amount: number
+          created_at: string
+          entry_type: Database["public"]["Enums"]["ledger_entry_type"]
+          id: number
+          match_no: number | null
+          note: string
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          payment_reference: string | null
+          player_id: number
+          player_name: string
+          queue_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ledger_entries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_player_paused: {
         Args: { p_paused: boolean; p_player_id: number; p_queue_id: string }
