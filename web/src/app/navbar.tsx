@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 
 import { NAV_TABS, type NavTab } from "@/app/nav-tabs";
 import { useSignOut } from "@/features/auth/use-sign-out";
+import { DisplayQrDialog } from "@/features/display/display-qr";
 import { CreateQueueDialog, DeleteQueueDialog } from "@/features/queues/queue-dialogs";
 import { QueueSwitcherPanel } from "@/features/queues/queue-switcher-panel";
 import { getQueueDisplayPath, getQueuePath } from "@/lib/routes";
@@ -53,13 +54,15 @@ const shortcutRowClass =
   "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer";
 
 // Floating bottom navbar (ported from the old Navbar): queue list, tabs, shortcuts.
-// New in Qminton: "Log out" in Shortcuts, because there is now a login.
+// New in Qminton: "Log out" in Shortcuts, because there is now a login, and
+// "Display QR" (owner's addition in step 11) so players can follow on their phones.
 export function Navbar({ queueId, activeTab, onTabChange }: Props) {
   const navigate = useNavigate();
   const { signOut, isSigningOut } = useSignOut();
   const [showQueueList, setShowQueueList] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showNewQueue, setShowNewQueue] = useState(false);
+  const [showDisplayQr, setShowDisplayQr] = useState(false);
   const [queuePendingDeletion, setQueuePendingDeletion] = useState<{ id: string; name: string } | null>(null);
   const navRef = useRef<HTMLDivElement | null>(null);
 
@@ -109,6 +112,8 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
           onDeleted={() => handleQueueDeleted(queuePendingDeletion.id)}
         />
       )}
+
+      {showDisplayQr && queueId && <DisplayQrDialog queueId={queueId} onClose={() => setShowDisplayQr(false)} />}
 
       {showNewQueue && (
         <CreateQueueDialog
@@ -222,6 +227,23 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
                         </ShortcutIcon>
                         <ShortcutText title="Display" subtitle="Open the public display screen" />
                       </Link>
+                    )}
+
+                    {queueId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowShortcuts(false);
+                          setShowDisplayQr(true);
+                        }}
+                        className={shortcutRowClass}
+                      >
+                        <ShortcutIcon>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75h6v6h-6v-6Zm10.5 0h6v6h-6v-6Zm-10.5 10.5h6v6h-6v-6Z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 14.25h2.25v2.25h-2.25zM18 18h2.25v2.25H18zM18 14.25h2.25M14.25 18v2.25" />
+                        </ShortcutIcon>
+                        <ShortcutText title="Display QR" subtitle="Let players scan the display" />
+                      </button>
                     )}
 
                     <button type="button" onClick={() => void signOut()} disabled={isSigningOut} className={shortcutRowClass}>

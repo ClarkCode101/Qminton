@@ -548,6 +548,7 @@ export type Database = {
         Args: { p_court_no: number; p_match_id?: string; p_queue_id: string }
         Returns: Json
       }
+      get_display: { Args: { p_queue_id: string }; Returns: Json }
       move_player_to_bottom: {
         Args: { p_player_id: number; p_queue_id: string }
         Returns: undefined

@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams } from "react-router";
 
@@ -21,14 +22,16 @@ import {
 import { AddPlayerModal } from "@/features/players/add-player-modal";
 import { PlayerStatsTable } from "@/features/players/player-stats-table";
 import { usePlayerActions, usePlayerBilledTotals, usePlayers } from "@/features/players/use-players";
-import { useQueue, useUpdateQueueSettings } from "@/features/queues/use-queues";
+import { queueKeys, useQueue, useUpdateQueueSettings } from "@/features/queues/use-queues";
+import { useQueueLiveUpdates } from "@/hooks/use-queue-live-updates";
 import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/services/errors";
 import type { MatchWithPlayers } from "@/services/matches";
 import type { Player } from "@/services/players";
 
 // Organizer view of one queue (ported from the old app/queue/page.tsx):
-// Courts tab, Players tab table, Billing tab.
+// Courts tab, Players tab table, Billing tab. Changes made on another device
+// show up live (Realtime), like the old 10-second refresh but right away.
 export function QueuePage() {
   const { queueId = "" } = useParams();
   const queueQuery = useQueue(queueId);
@@ -46,6 +49,12 @@ export function QueuePage() {
   const billingPlayersQuery = useBillingPlayers(queueId);
   const billingActions = useBillingActions(queueId);
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
+  // Everything under ["queues", id] (players, matches, log, billing) reloads.
+  useQueueLiveUpdates(queueId, () => {
+    void queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
+    void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
+  });
   const [showResetDialog, setShowResetDialog] = useState(false);
 
   const [activeTab, setActiveTab] = useState<NavTab>("courts");

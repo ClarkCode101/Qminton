@@ -139,7 +139,40 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Nothing. Next: step 11 (Display page + Realtime).
+Owner deploys to Cloudflare Pages (to test the QR on a real phone), then manual test of step 11.
+Step 11 was committed BEFORE the owner's manual test, at the owner's request, so it can be deployed.
+
+### 🔄 Step 11: Display + Realtime + QR (SQL applied via MCP as `display_realtime`; committed; owner test pending)
+- Also added early (from step 13): `web/public/_redirects` (`/* /index.html 200`, SPA fallback on
+  Cloudflare Pages). Cloudflare settings given to the owner: root `web`, build `npm run build`, output
+  `dist`, env `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` (optional `NODE_VERSION=22`).
+- Applied 2026-10-20 with the owner's OK (in Supabase's migration history). End-to-end check: a Node
+  listener using only the publishable key joined private channel `queue:e2e-test` and received a
+  `realtime.send` message in under a second. Security advisor: new expected WARN "anon can execute
+  SECURITY DEFINER get_display" (intentional: the public display) + the known authenticated ones.
+- DB `20261025120000_display_realtime.sql`:
+  - `get_display(queue)` (security definer, **anon + authenticated**): name, mode, court count, started
+    matches (court, started_at, team names), next 3 queued (position + teams), queued count. Null when the
+    queue doesn't exist. Nothing else (no owner, fees, billing). Helper `private.display_team`.
+  - Live updates: trigger `queues_notify_changed` (after update when `version` changes, and after delete)
+    → `realtime.send({version} | {deleted}, 'queue_changed', 'queue:<id>', private => true)`.
+  - Policy on `realtime.messages`: anon + authenticated may **listen** to broadcast topics `queue:%`; no
+    insert policy, so nobody can send fake updates from the browser.
+  - Gotcha: `realtime.messages` has daily partitions created by the Realtime server after a client
+    connects. Our project had none until the first connection (2026-10-20, a test connect with the
+    publishable key); before that `realtime.send` only warns and nothing is stored.
+- Dry-run `supabase/dry-runs/20261025_display_realtime_dry_run.sql` via MCP: all checks OK (anon display
+  data, limit 3 of 4, no private fields, unknown queue = null, anon can't read tables / call RPCs or
+  private helpers, 7 messages on the topic, anon listens only on `queue:` topics, anon and logged-in
+  users can't insert messages, delete sends `{deleted: true}`).
+- Frontend: `services/display.ts` (`getDisplay`, bad id = not found), `services/realtime.ts`
+  (`subscribeToQueueChanges`: private channel, reload on reconnect), `hooks/use-queue-live-updates.ts`
+  (300 ms debounce + 60 s backup refresh), `features/display/use-display.ts`, `display-qr.tsx`
+  (`qrcode.react` 4.2.0, ISC), `pages/display-page.tsx` (ported old display + QR card, hidden on phones;
+  LoadError with retry instead of redirect = bug #4). Queue page reloads everything under
+  `["queues", id]` on live updates. Navbar Shortcuts: new **Display QR** (dialog: big QR, link, Copy
+  link, Open display). `getQueueDisplayUrl` in `lib/routes.ts`. Tests mock Realtime in `test/setup.ts`.
+- Tests: 125 passing.
 
 ### ✅ Step 10: Billing (SQL applied by the owner in the SQL Editor; owner OK 2026-10-20; committed)
 - Owner re-ran the dry-run in the SQL Editor (all 33 OK), then applied the migration there (like steps
@@ -347,6 +380,10 @@ Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, create
 9. ~~Match log~~
 10. ~~Billing: ledger, adjustments, shared fee, full/partial/bulk payment, undo, CSV, share summary~~
 11. Display page + Supabase Realtime (replaces 10s polling + BroadcastChannel)
+    + **owner's addition (2026-10-20): QR code to the display link**, in BOTH places: a "Show QR"
+    button in the organizer view (big QR in a dialog, for venues without a big screen) and a small QR
+    in a corner of the Display page. Library: `qrcode.react` (ISC). New feature by owner request
+    (exception to "no new features"). Phones can only open it once deployed (or via `--host` on LAN).
 12. (Skipped: data migration, clean DB chosen)
 13. Cloudflare config, README, feature checklist
 
