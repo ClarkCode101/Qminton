@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { OverlayPanel } from "@/components/overlay-panel";
 import { CourtsGrid } from "@/features/courts/courts-grid";
+import { MatchLogList } from "@/features/matchmaking/match-log";
 import { buildCourtViews, getMatchActionState, getQueuedMatches } from "@/features/matchmaking/match-view";
 import { UpNextOverlay, UpNextSection } from "@/features/matchmaking/up-next";
 import { PlayerListPanel } from "@/features/players/player-list-panel";
@@ -15,6 +16,8 @@ interface Props {
   players: Player[];
   // Matches on a court now + matches in Up Next.
   matches: MatchWithPlayers[];
+  // Newest Match Log entries and how many there are in total.
+  matchLog: { entries: MatchWithPlayers[]; total: number };
   isSavingCourtCount: boolean;
   isStartingMatch: boolean;
   isResetting: boolean;
@@ -60,13 +63,14 @@ function RateChip({ label, value, muted = false }: { label: string; value: strin
 const courtCountButtonClass =
   "inline-flex h-7 w-7 items-center justify-center rounded-full text-base font-black leading-none text-slate-700 transition-colors hover:bg-sky-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40";
 
-type Overlay = "up-next" | "courts" | null;
+type Overlay = "up-next" | "courts" | "match-log" | null;
 
-// The Courts tab (ported from the old QueueCourtsTab). Match Log arrives in step 9.
+// The Courts tab (ported from the old QueueCourtsTab).
 export function CourtsTab({
   queue,
   players,
   matches,
+  matchLog,
   isSavingCourtCount,
   isStartingMatch,
   isResetting,
@@ -109,6 +113,12 @@ export function CourtsTab({
           onRemove={onCancelQueuedMatch}
           onClose={() => setOverlay(null)}
         />
+      )}
+
+      {overlay === "match-log" && (
+        <OverlayPanel eyebrow="Match Log" title="Recent results" maxWidthClassName="max-w-3xl" onClose={() => setOverlay(null)}>
+          <MatchLogList matches={matchLog.entries} mode={queue.game_mode} />
+        </OverlayPanel>
       )}
 
       {overlay === "courts" && (
@@ -247,6 +257,13 @@ export function CourtsTab({
                           Show players
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setOverlay("match-log")}
+                        className="inline-flex min-h-8 items-center justify-center rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 transition-colors hover:bg-sky-50 cursor-pointer"
+                      >
+                        Match Log {matchLog.total > 0 ? `(${matchLog.total})` : ""}
+                      </button>
                       <button
                         type="button"
                         onClick={onShowResetMatchmaking}

@@ -99,6 +99,24 @@ export async function resetMatchmaking(queueId: string, includePlayersOnBreak: b
   return (data as { message: string }).message;
 }
 
+// Match Log: every match of the queue (running, waiting, finished, cancelled),
+// newest first like the old app (match number, then time; queued ones without
+// a number last). Returns the newest `limit` entries and the total count.
+export async function listMatchHistory(
+  queueId: string,
+  limit = 12,
+): Promise<{ entries: MatchWithPlayers[]; total: number }> {
+  const { data, error, count } = await supabase
+    .from("matches")
+    .select("*, match_players(*)", { count: "exact" })
+    .eq("queue_id", queueId)
+    .order("match_no", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return { entries: data as MatchWithPlayers[], total: count ?? data.length };
+}
+
 // Matches on a court right now and matches waiting in Up Next, with their players.
 export async function listActiveMatches(queueId: string): Promise<MatchWithPlayers[]> {
   const { data, error } = await supabase

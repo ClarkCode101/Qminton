@@ -16,7 +16,7 @@ vi.mock("@/services/queues", () => ({
   deleteQueue: vi.fn(),
 }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
-vi.mock("@/services/matches", () => ({ listActiveMatches: vi.fn(async () => []) }));
+vi.mock("@/services/matches", () => ({ listActiveMatches: vi.fn(async () => []), listMatchHistory: vi.fn(async () => ({ entries: [], total: 0 })) }));
 vi.mock("@/services/players", () => ({
   listPlayers: vi.fn(async () => []),
   listPlayerBilledTotals: vi.fn(async () => new Map()),

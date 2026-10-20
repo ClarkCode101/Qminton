@@ -13,6 +13,7 @@ import {
   useActiveMatches,
   useCancelQueuedMatch,
   useFinishGame,
+  useMatchHistory,
   useResetMatchmaking,
   useStartNextMatch,
 } from "@/features/matchmaking/use-matchmaking";
@@ -36,6 +37,7 @@ export function QueuePage() {
   const actions = usePlayerActions(queueId);
   const updateSettings = useUpdateQueueSettings(queueId);
   const matchesQuery = useActiveMatches(queueId);
+  const historyQuery = useMatchHistory(queueId);
   const startMatch = useStartNextMatch(queueId);
   const cancelQueued = useCancelQueuedMatch(queueId);
   const finishGame = useFinishGame(queueId);
@@ -198,6 +200,7 @@ export function QueuePage() {
           queue={queue}
           players={players}
           matches={matches}
+          matchLog={historyQuery.data ?? { entries: [], total: 0 }}
           isStartingMatch={startMatch.isPending}
           isResetting={resetMatchmaking.isPending}
           onStartMatch={() => startMatch.mutate()}

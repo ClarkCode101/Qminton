@@ -11,12 +11,16 @@ import {
   finishGame,
   getMatchmakingSnapshot,
   listActiveMatches,
+  listMatchHistory,
   resetMatchmaking,
 } from "@/services/matches";
 import type { Player } from "@/services/players";
 
+// Both keys start with ["queues", queueId], so any change to the queue
+// (which invalidates queueKeys.detail) also refreshes them.
 export const matchKeys = {
   active: (queueId: string) => ["queues", queueId, "matches"] as const,
+  history: (queueId: string) => ["queues", queueId, "history"] as const,
 };
 
 const VERSION_CONFLICT = "This queue was changed on another device. Please try again.";
@@ -37,6 +41,11 @@ function toEnginePlayer(player: Player): EnginePlayer {
 
 export function useActiveMatches(queueId: string) {
   return useQuery({ queryKey: matchKeys.active(queueId), queryFn: () => listActiveMatches(queueId) });
+}
+
+// The newest 12 Match Log entries (old overlay limit) + the total for the button.
+export function useMatchHistory(queueId: string) {
+  return useQuery({ queryKey: matchKeys.history(queueId), queryFn: () => listMatchHistory(queueId, 12) });
 }
 
 // "Start Next Match" / "Queue Next Match":

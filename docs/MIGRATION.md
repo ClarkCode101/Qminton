@@ -139,7 +139,16 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Step 9 in progress.
+Step 10 in progress.
+
+### ✅ Step 9: Match Log (frontend only, no SQL; owner OK 2026-10-20; committed)
+- No migration needed: RLS already lets the owner read `matches` + `match_players`.
+- `listMatchHistory(queue, 12)`: newest 12 (match_no desc nulls last, created_at desc = old sort) + exact
+  total; `useMatchHistory` (key under `["queues", id]`, so every queue change refreshes it).
+- `match-log.tsx` (old MatchHistoryPanel: Finished / On Court / Up Next / Cancelled badges + colors,
+  "Court N" or "Coming up #N", time, teams, cancel reason); Courts tab "Match Log (N)" button + overlay
+  "Recent results" (last 12, like the old overlay).
+- Tests: 97 passing.
 
 ### ✅ Step 8: Finish Game + rest rule + Reset Matchmaking (SQL applied by the owner in the SQL Editor; owner OK 2026-10-20; committed)
 - MCP `execute_sql` (dry-run) and `apply_migration` were declined (looks like a permission setting).
@@ -309,7 +318,7 @@ Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, create
 6. ~~Settings: billing setup, game-mode change rule, **court resize** (tricky)~~ (grow → auto-start finished in step 7)
 7. ~~Matchmaking: TS scorer + tests ported from pytest (seeded RNG), start/queue match RPC, Up Next, cancel queued match~~
 8. ~~Finish game + rest logic + auto-start next pending; reset matchmaking~~
-9. Match log
+9. ~~Match log~~
 10. Billing: ledger, adjustments, shared fee, full/partial/bulk payment, undo, CSV, share summary
 11. Display page + Supabase Realtime (replaces 10s polling + BroadcastChannel)
 12. (Skipped: data migration, clean DB chosen)

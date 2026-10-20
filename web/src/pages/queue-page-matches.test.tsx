@@ -9,6 +9,7 @@ import {
   finishGame,
   getMatchmakingSnapshot,
   listActiveMatches,
+  listMatchHistory,
   resetMatchmaking,
   type MatchWithPlayers,
 } from "@/services/matches";
@@ -25,6 +26,7 @@ vi.mock("@/services/players", () => ({
 }));
 vi.mock("@/services/matches", () => ({
   listActiveMatches: vi.fn(),
+  listMatchHistory: vi.fn(),
   getMatchmakingSnapshot: vi.fn(),
   createMatch: vi.fn(),
   cancelQueuedMatch: vi.fn(),
@@ -108,6 +110,39 @@ describe("starting and queueing matches", () => {
     vi.mocked(cancelQueuedMatch).mockReset();
     vi.mocked(finishGame).mockReset();
     vi.mocked(resetMatchmaking).mockReset();
+    vi.mocked(listMatchHistory).mockReset().mockResolvedValue({ entries: [], total: 0 });
+  });
+
+  it("shows the Match Log with status, court and cancel reason", async () => {
+    const finished: MatchWithPlayers = {
+      ...queuedMatch,
+      id: "h1",
+      status: "completed",
+      queue_order: null,
+      court_no: 1,
+      match_no: 3,
+      started_at: "2026-10-22T10:00:00Z",
+      completed_at: "2026-10-22T10:20:00Z",
+    };
+    const cancelled: MatchWithPlayers = {
+      ...queuedMatch,
+      id: "h2",
+      status: "cancelled",
+      queue_order: null,
+      queue_length: 2,
+      cancel_reason: "Queued match cancelled by operator",
+    };
+    vi.mocked(listMatchHistory).mockResolvedValue({ entries: [finished, cancelled], total: 15 });
+    renderApp(routes, "/queue/q1");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Match Log (15)" }));
+    const log = screen.getByRole("list", { name: "Recent results" });
+    expect(within(log).getByText("Finished")).toBeInTheDocument();
+    expect(within(log).getByText("Court 1")).toBeInTheDocument();
+    expect(within(log).getByText("Cancelled")).toBeInTheDocument();
+    expect(within(log).getByText("Coming up #2")).toBeInTheDocument();
+    expect(within(log).getByText("Queued match cancelled by operator")).toBeInTheDocument();
+    expect(within(log).getAllByText("Eve + Fay vs Gus + Hal")).toHaveLength(2);
   });
 
   it("finishes the game on a court and shows the result", async () => {
