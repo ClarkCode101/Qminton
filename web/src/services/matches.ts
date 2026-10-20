@@ -80,6 +80,25 @@ export async function cancelQueuedMatch(queueId: string, matchId: string): Promi
   if (error) throw error;
 }
 
+// "Finish Game". matchId = the match the organizer saw on that court, so a
+// double tap can't finish the next match that just started there.
+// Returns the old API's message, e.g. "Court is now available".
+export async function finishGame(queueId: string, courtNo: number, matchId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("finish_game", { p_queue_id: queueId, p_court_no: courtNo, p_match_id: matchId });
+  if (error) throw error;
+  return (data as { message: string }).message;
+}
+
+// Clears courts, Up Next and the anti-repeat memory; match history is kept.
+export async function resetMatchmaking(queueId: string, includePlayersOnBreak: boolean): Promise<string> {
+  const { data, error } = await supabase.rpc("reset_matchmaking", {
+    p_queue_id: queueId,
+    p_include_players_on_break: includePlayersOnBreak,
+  });
+  if (error) throw error;
+  return (data as { message: string }).message;
+}
+
 // Matches on a court right now and matches waiting in Up Next, with their players.
 export async function listActiveMatches(queueId: string): Promise<MatchWithPlayers[]> {
   const { data, error } = await supabase

@@ -6,8 +6,10 @@ import { QueuePage } from "@/pages/queue-page";
 import {
   cancelQueuedMatch,
   createMatch,
+  finishGame,
   getMatchmakingSnapshot,
   listActiveMatches,
+  resetMatchmaking,
   type MatchWithPlayers,
 } from "@/services/matches";
 import { listPlayers, type Player } from "@/services/players";
@@ -26,6 +28,8 @@ vi.mock("@/services/matches", () => ({
   getMatchmakingSnapshot: vi.fn(),
   createMatch: vi.fn(),
   cancelQueuedMatch: vi.fn(),
+  finishGame: vi.fn(),
+  resetMatchmaking: vi.fn(),
 }));
 
 const queue: Queue = {
@@ -102,6 +106,46 @@ describe("starting and queueing matches", () => {
       .mockResolvedValue({ queue, players, memory: emptyPairMemory(), queuedCount: 0 });
     vi.mocked(createMatch).mockReset();
     vi.mocked(cancelQueuedMatch).mockReset();
+    vi.mocked(finishGame).mockReset();
+    vi.mocked(resetMatchmaking).mockReset();
+  });
+
+  it("finishes the game on a court and shows the result", async () => {
+    const running: MatchWithPlayers = {
+      ...queuedMatch,
+      id: "m1",
+      status: "started",
+      queue_order: null,
+      court_no: 2,
+      match_no: 4,
+      started_at: new Date().toISOString(),
+    };
+    vi.mocked(listActiveMatches).mockResolvedValue([running]);
+    vi.mocked(finishGame).mockResolvedValue("Court is now available");
+    renderApp(routes, "/queue/q1");
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Finish Game" }));
+    });
+
+    expect(finishGame).toHaveBeenCalledWith("q1", 2, "m1");
+    expect(await screen.findByText("Court is now available")).toBeInTheDocument();
+  });
+
+  it("resets matchmaking, optionally including players on break", async () => {
+    vi.mocked(resetMatchmaking).mockResolvedValue("Matchmaking reset; courts cleared, queue returned, and history preserved");
+    renderApp(routes, "/queue/q1");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reset Matchmaking" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Reset matchmaking?" });
+    fireEvent.click(within(dialog).getByLabelText(/Include players on break/));
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Reset Matchmaking" }));
+    });
+
+    expect(resetMatchmaking).toHaveBeenCalledWith("q1", true);
+    expect(await screen.findByText(/Matchmaking reset; courts cleared/)).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
   it("picks 4 players and starts them on a court", async () => {

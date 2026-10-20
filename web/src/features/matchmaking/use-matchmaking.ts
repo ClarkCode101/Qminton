@@ -5,7 +5,14 @@ import { buildMatchToastMessage } from "@/features/matchmaking/match-view";
 import { queueKeys } from "@/features/queues/use-queues";
 import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/services/errors";
-import { cancelQueuedMatch, createMatch, getMatchmakingSnapshot, listActiveMatches } from "@/services/matches";
+import {
+  cancelQueuedMatch,
+  createMatch,
+  finishGame,
+  getMatchmakingSnapshot,
+  listActiveMatches,
+  resetMatchmaking,
+} from "@/services/matches";
 import type { Player } from "@/services/players";
 
 export const matchKeys = {
@@ -80,6 +87,43 @@ export function useStartNextMatch(queueId: string) {
     },
     onError: (error) => {
       showToast(toUserMessage(error, "Failed to create match"), "error");
+    },
+  });
+}
+
+// "Finish Game" on a court. Shows the old API message as the toast.
+export function useFinishGame(queueId: string) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ courtNo, matchId }: { courtNo: number; matchId: string }) => finishGame(queueId, courtNo, matchId),
+    onSuccess: async (message) => {
+      await queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
+      void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
+      showToast(message, "success");
+    },
+    onError: async (error) => {
+      // The court may have changed under us: show the latest state.
+      await queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
+      showToast(toUserMessage(error, "Failed to finish game"), "error");
+    },
+  });
+}
+
+export function useResetMatchmaking(queueId: string) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  return useMutation({
+    mutationFn: (includePlayersOnBreak: boolean) => resetMatchmaking(queueId, includePlayersOnBreak),
+    onSuccess: async (message) => {
+      await queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
+      void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
+      showToast(message, "success");
+    },
+    onError: (error) => {
+      showToast(toUserMessage(error, "Failed to reset matchmaking"), "error");
     },
   });
 }

@@ -8,7 +8,14 @@ import { FullScreenMessage } from "@/components/full-screen-message";
 import { LoadError } from "@/components/load-error";
 import { BillingTab } from "@/features/billing/billing-tab";
 import { CourtsTab } from "@/features/courts/courts-tab";
-import { useActiveMatches, useCancelQueuedMatch, useStartNextMatch } from "@/features/matchmaking/use-matchmaking";
+import { ResetMatchmakingDialog } from "@/features/matchmaking/reset-matchmaking-dialog";
+import {
+  useActiveMatches,
+  useCancelQueuedMatch,
+  useFinishGame,
+  useResetMatchmaking,
+  useStartNextMatch,
+} from "@/features/matchmaking/use-matchmaking";
 import { AddPlayerModal } from "@/features/players/add-player-modal";
 import { PlayerStatsTable } from "@/features/players/player-stats-table";
 import { usePlayerActions, usePlayerBilledTotals, usePlayers } from "@/features/players/use-players";
@@ -31,7 +38,10 @@ export function QueuePage() {
   const matchesQuery = useActiveMatches(queueId);
   const startMatch = useStartNextMatch(queueId);
   const cancelQueued = useCancelQueuedMatch(queueId);
+  const finishGame = useFinishGame(queueId);
+  const resetMatchmaking = useResetMatchmaking(queueId);
   const { showToast } = useToast();
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   const [activeTab, setActiveTab] = useState<NavTab>("courts");
   const [showAddPlayer, setShowAddPlayer] = useState(false);
@@ -76,6 +86,22 @@ export function QueuePage() {
 
   const players = playersQuery.data ?? [];
   const matches = matchesQuery.data ?? [];
+
+  // Finish the match the organizer sees on that court (its id guards against double taps).
+  const finishCourt = (courtNo: number) => {
+    const match = matches.find((item) => item.status === "started" && item.court_no === courtNo);
+    if (!match || finishGame.isPending) return;
+    finishGame.mutate({ courtNo, matchId: match.id });
+  };
+
+  const confirmReset = async (includePlayersOnBreak: boolean) => {
+    try {
+      await resetMatchmaking.mutateAsync(includePlayersOnBreak);
+      setShowResetDialog(false);
+    } catch {
+      // Toast already shown; keep the dialog open.
+    }
+  };
 
   const confirmCancelMatch = async () => {
     if (!matchToCancel) return;
@@ -157,6 +183,14 @@ export function QueuePage() {
         />
       )}
 
+      {showResetDialog && (
+        <ResetMatchmakingDialog
+          busy={resetMatchmaking.isPending}
+          onConfirm={confirmReset}
+          onClose={() => setShowResetDialog(false)}
+        />
+      )}
+
       <Navbar queueId={queue.id} activeTab={activeTab} onTabChange={setActiveTab} />
 
       {activeTab === "courts" && (
@@ -165,7 +199,10 @@ export function QueuePage() {
           players={players}
           matches={matches}
           isStartingMatch={startMatch.isPending}
+          isResetting={resetMatchmaking.isPending}
           onStartMatch={() => startMatch.mutate()}
+          onFinishCourt={finishCourt}
+          onShowResetMatchmaking={() => setShowResetDialog(true)}
           onCancelQueuedMatch={setMatchToCancel}
           isSavingCourtCount={updateSettings.isPending}
           onChangeCourtCount={(courtCount) => void changeCourtCount(courtCount)}

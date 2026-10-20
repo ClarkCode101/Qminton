@@ -17,7 +17,10 @@ interface Props {
   matches: MatchWithPlayers[];
   isSavingCourtCount: boolean;
   isStartingMatch: boolean;
+  isResetting: boolean;
   onStartMatch: () => void;
+  onFinishCourt: (courtNo: number) => void;
+  onShowResetMatchmaking: () => void;
   onCancelQueuedMatch: (match: MatchWithPlayers) => void;
   onChangeCourtCount: (courtCount: number) => void;
   onShowAddPlayer: () => void;
@@ -59,16 +62,17 @@ const courtCountButtonClass =
 
 type Overlay = "up-next" | "courts" | null;
 
-// The Courts tab (ported from the old QueueCourtsTab). Live so far: players
-// sidebar, court count, Start/Queue Next Match, courts with timers, Up Next.
-// Finish Game, Match Log and Reset Matchmaking arrive in steps 8–9.
+// The Courts tab (ported from the old QueueCourtsTab). Match Log arrives in step 9.
 export function CourtsTab({
   queue,
   players,
   matches,
   isSavingCourtCount,
   isStartingMatch,
+  isResetting,
   onStartMatch,
+  onFinishCourt,
+  onShowResetMatchmaking,
   onCancelQueuedMatch,
   onChangeCourtCount,
   onShowAddPlayer,
@@ -115,7 +119,7 @@ export function CourtsTab({
           maxWidthClassName="max-w-6xl"
           onClose={() => setOverlay(null)}
         >
-          <CourtsGrid courts={courts} readOnly />
+          <CourtsGrid courts={courts} onFinish={onFinishCourt} />
         </OverlayPanel>
       )}
 
@@ -233,20 +237,30 @@ export function CourtsTab({
                       </button>
                     </div>
 
-                    {playersCollapsed && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {playersCollapsed && (
+                        <button
+                          type="button"
+                          onClick={() => setPlayersCollapsed(false)}
+                          className="inline-flex min-h-10 items-center rounded-full border border-sky-300 bg-white px-4 py-2 text-sm font-bold text-sky-700 shadow-sm transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 cursor-pointer"
+                        >
+                          Show players
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => setPlayersCollapsed(false)}
-                        className="inline-flex min-h-10 items-center rounded-full border border-sky-300 bg-white px-4 py-2 text-sm font-bold text-sky-700 shadow-sm transition-colors hover:border-sky-400 hover:bg-sky-50 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 cursor-pointer"
+                        onClick={onShowResetMatchmaking}
+                        disabled={isResetting}
+                        className="inline-flex min-h-8 items-center justify-center rounded-full border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-500 transition-colors hover:border-rose-300 hover:bg-rose-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Show players
+                        {isResetting ? "Resetting..." : "Reset Matchmaking"}
                       </button>
-                    )}
+                    </div>
                   </div>
                 </div>
 
                 <div className="md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-1">
-                  <CourtsGrid courts={courts} readOnly />
+                  <CourtsGrid courts={courts} onFinish={onFinishCourt} />
                   <UpNextSection matches={queuedMatches} mode={queue.game_mode} onViewAll={() => setOverlay("up-next")} />
                 </div>
               </div>

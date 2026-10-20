@@ -490,6 +490,10 @@ export type Database = {
         Returns: string
       }
       delete_queue: { Args: { p_queue_id: string }; Returns: undefined }
+      finish_game: {
+        Args: { p_court_no: number; p_match_id?: string; p_queue_id: string }
+        Returns: Json
+      }
       move_player_to_bottom: {
         Args: { p_player_id: number; p_queue_id: string }
         Returns: undefined
@@ -497,6 +501,10 @@ export type Database = {
       remove_player: {
         Args: { p_player_id: number; p_queue_id: string }
         Returns: undefined
+      }
+      reset_matchmaking: {
+        Args: { p_include_players_on_break?: boolean; p_queue_id: string }
+        Returns: Json
       }
       set_player_paused: {
         Args: { p_paused: boolean; p_player_id: number; p_queue_id: string }

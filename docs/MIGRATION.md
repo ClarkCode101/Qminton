@@ -139,7 +139,30 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Step 8 in progress.
+Step 9 in progress.
+
+### ✅ Step 8: Finish Game + rest rule + Reset Matchmaking (SQL applied by the owner in the SQL Editor; owner OK 2026-10-20; committed)
+- MCP `execute_sql` (dry-run) and `apply_migration` were declined (looks like a permission setting).
+  The owner ran `supabase/dry-runs/20261023_finish_and_reset_dry_run.sql` in the SQL Editor (it ends with a
+  deliberate error that prints the results and undoes everything): **all 18 checks passed**. Then the owner
+  applied the migration in the SQL Editor ("Run without RLS" on the editor's generic warning; the only
+  tables created are temp tables in the dry-run). Like step 4, it is **not in Supabase's migration history**.
+  Verified read-only afterwards: both functions exist, security definer, anon can't execute.
+- Note seen in the dry-run (same as the old app): freed players get rest 1, but if the next queued match
+  starts on that court right away, that start lowers their rest to 0.
+- DB `20261023120000_finish_and_reset.sql`:
+  - `finish_game(queue, court_no, match_id?)`: old rest rule exactly (rest = (free + Up Next players not in
+    this game, incl. on break) ÷ players per game; at least 1 if another court is playing or matches
+    wait), match → completed, freed players rest, then `start_next_pending` on that court. Returns the old
+    messages. **New guard:** `p_match_id` = the match the organizer saw; if the court now holds a
+    different match → "This court already changed…" (stops a double tap finishing the next match).
+  - `reset_matchmaking(queue, include_on_break)`: queued → cancelled ("…before queued match started"),
+    started → cancelled ("…while court was active", completed_at), pair memory deleted, players not
+    playing/waiting, rest 0, optional un-pause, reindex; match counter kept (old behavior).
+- Frontend: `finishGame` / `resetMatchmaking` services, `useFinishGame` (refreshes on error too) /
+  `useResetMatchmaking`, `reset-matchmaking-dialog.tsx` (old text + checkbox), Finish Game on court cards
+  (main grid + expanded view), Reset Matchmaking button. `database.ts` functions added by hand
+  (regenerate after applying). Tests: 96 passing.
 
 ### ✅ Step 7: Matchmaking (SQL applied via MCP as `matchmaking`; owner OK 2026-10-20; committed; owner pushes)
 Generated types identical to the hand-written ones; security advisor = only the known intentional warnings.
@@ -285,7 +308,7 @@ Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, create
 5. ~~Players: add, bulk add, remove, pause/resume, move to bottom, Players tab~~
 6. ~~Settings: billing setup, game-mode change rule, **court resize** (tricky)~~ (grow → auto-start finished in step 7)
 7. ~~Matchmaking: TS scorer + tests ported from pytest (seeded RNG), start/queue match RPC, Up Next, cancel queued match~~
-8. Finish game + rest logic + auto-start next pending; reset matchmaking
+8. ~~Finish game + rest logic + auto-start next pending; reset matchmaking~~
 9. Match log
 10. Billing: ledger, adjustments, shared fee, full/partial/bulk payment, undo, CSV, share summary
 11. Display page + Supabase Realtime (replaces 10s polling + BroadcastChannel)
