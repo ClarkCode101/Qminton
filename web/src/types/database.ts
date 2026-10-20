@@ -465,6 +465,21 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      cancel_queued_match: {
+        Args: { p_match_id: string; p_queue_id: string }
+        Returns: undefined
+      }
+      create_match: {
+        Args: {
+          p_balance_text: string
+          p_expected_version: number
+          p_explanation: string
+          p_queue_id: string
+          p_team1: number[]
+          p_team2: number[]
+        }
+        Returns: Json
+      }
       create_queue: {
         Args: {
           p_court_fee: number

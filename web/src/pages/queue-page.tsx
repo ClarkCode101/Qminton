@@ -8,12 +8,14 @@ import { FullScreenMessage } from "@/components/full-screen-message";
 import { LoadError } from "@/components/load-error";
 import { BillingTab } from "@/features/billing/billing-tab";
 import { CourtsTab } from "@/features/courts/courts-tab";
+import { useActiveMatches, useCancelQueuedMatch, useStartNextMatch } from "@/features/matchmaking/use-matchmaking";
 import { AddPlayerModal } from "@/features/players/add-player-modal";
 import { PlayerStatsTable } from "@/features/players/player-stats-table";
 import { usePlayerActions, usePlayerBilledTotals, usePlayers } from "@/features/players/use-players";
 import { useQueue, useUpdateQueueSettings } from "@/features/queues/use-queues";
 import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/services/errors";
+import type { MatchWithPlayers } from "@/services/matches";
 import type { Player } from "@/services/players";
 
 // Organizer view of one queue (ported from the old app/queue/page.tsx).
@@ -26,13 +28,17 @@ export function QueuePage() {
   const billedQuery = usePlayerBilledTotals(queueId);
   const actions = usePlayerActions(queueId);
   const updateSettings = useUpdateQueueSettings(queueId);
+  const matchesQuery = useActiveMatches(queueId);
+  const startMatch = useStartNextMatch(queueId);
+  const cancelQueued = useCancelQueuedMatch(queueId);
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<NavTab>("courts");
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [playerToRemove, setPlayerToRemove] = useState<Player | null>(null);
+  const [matchToCancel, setMatchToCancel] = useState<MatchWithPlayers | null>(null);
 
-  if (queueQuery.isPending || (queueQuery.data && playersQuery.isPending)) {
+  if (queueQuery.isPending || (queueQuery.data && (playersQuery.isPending || matchesQuery.isPending))) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-sm text-slate-500">Loading...</p>
@@ -41,13 +47,14 @@ export function QueuePage() {
   }
 
   // A network hiccup keeps you here with a retry (old bug #4 sent you to "/").
-  if (queueQuery.isError || playersQuery.isError) {
+  if (queueQuery.isError || playersQuery.isError || matchesQuery.isError) {
     return (
       <LoadError
         message="Could not load this queue. Check your connection and try again."
         onRetry={() => {
           void queueQuery.refetch();
           void playersQuery.refetch();
+          void matchesQuery.refetch();
         }}
       />
     );
@@ -68,6 +75,17 @@ export function QueuePage() {
   }
 
   const players = playersQuery.data ?? [];
+  const matches = matchesQuery.data ?? [];
+
+  const confirmCancelMatch = async () => {
+    if (!matchToCancel) return;
+    try {
+      await cancelQueued.mutateAsync(matchToCancel.id);
+      setMatchToCancel(null);
+    } catch {
+      // Toast already shown; keep the dialog so they can retry or cancel.
+    }
+  };
 
   // Old bug #7: a failed court count change used to be an unhandled error.
   const changeCourtCount = async (courtCount: number) => {
@@ -127,12 +145,28 @@ export function QueuePage() {
         />
       )}
 
+      {matchToCancel && (
+        <ConfirmActionModal
+          title="Cancel queued match?"
+          message="This queued match will be removed from the upcoming matches list."
+          confirmLabel="Cancel Match"
+          tone="danger"
+          busy={cancelQueued.isPending}
+          onConfirm={confirmCancelMatch}
+          onClose={() => setMatchToCancel(null)}
+        />
+      )}
+
       <Navbar queueId={queue.id} activeTab={activeTab} onTabChange={setActiveTab} />
 
       {activeTab === "courts" && (
         <CourtsTab
           queue={queue}
           players={players}
+          matches={matches}
+          isStartingMatch={startMatch.isPending}
+          onStartMatch={() => startMatch.mutate()}
+          onCancelQueuedMatch={setMatchToCancel}
           isSavingCourtCount={updateSettings.isPending}
           onChangeCourtCount={(courtCount) => void changeCourtCount(courtCount)}
           onShowAddPlayer={() => setShowAddPlayer(true)}

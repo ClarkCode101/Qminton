@@ -12,6 +12,7 @@ vi.mock("@/services/queues", () => ({
   updateQueueSettings: vi.fn(),
 }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
+vi.mock("@/services/matches", () => ({ listActiveMatches: vi.fn(async () => []) }));
 vi.mock("@/services/players", () => ({
   listPlayers: vi.fn(async () => []),
   listPlayerBilledTotals: vi.fn(async () => new Map()),

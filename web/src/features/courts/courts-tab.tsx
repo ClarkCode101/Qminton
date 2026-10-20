@@ -1,16 +1,24 @@
 import { useEffect, useState, type ReactNode } from "react";
 
-import { getEmptyCourts } from "@/features/courts/court-view";
+import { OverlayPanel } from "@/components/overlay-panel";
 import { CourtsGrid } from "@/features/courts/courts-grid";
+import { buildCourtViews, getMatchActionState, getQueuedMatches } from "@/features/matchmaking/match-view";
+import { UpNextOverlay, UpNextSection } from "@/features/matchmaking/up-next";
 import { PlayerListPanel } from "@/features/players/player-list-panel";
 import { formatCurrency } from "@/lib/format";
+import type { MatchWithPlayers } from "@/services/matches";
 import type { Player } from "@/services/players";
 import type { Queue } from "@/services/queues";
 
 interface Props {
   queue: Queue;
   players: Player[];
+  // Matches on a court now + matches in Up Next.
+  matches: MatchWithPlayers[];
   isSavingCourtCount: boolean;
+  isStartingMatch: boolean;
+  onStartMatch: () => void;
+  onCancelQueuedMatch: (match: MatchWithPlayers) => void;
   onChangeCourtCount: (courtCount: number) => void;
   onShowAddPlayer: () => void;
   onRemovePlayer: (player: Player) => void;
@@ -49,14 +57,19 @@ function RateChip({ label, value, muted = false }: { label: string; value: strin
 const courtCountButtonClass =
   "inline-flex h-7 w-7 items-center justify-center rounded-full text-base font-black leading-none text-slate-700 transition-colors hover:bg-sky-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40";
 
-// The Courts tab layout (ported from the old QueueCourtsTab). Live so far:
-// players sidebar (step 5) and court count +/- (step 6). Courts show as
-// available until matches exist; Start Next Match, Up Next, Match Log and
-// Reset arrive in steps 7–9.
+type Overlay = "up-next" | "courts" | null;
+
+// The Courts tab (ported from the old QueueCourtsTab). Live so far: players
+// sidebar, court count, Start/Queue Next Match, courts with timers, Up Next.
+// Finish Game, Match Log and Reset Matchmaking arrive in steps 8–9.
 export function CourtsTab({
   queue,
   players,
+  matches,
   isSavingCourtCount,
+  isStartingMatch,
+  onStartMatch,
+  onCancelQueuedMatch,
   onChangeCourtCount,
   onShowAddPlayer,
   onRemovePlayer,
@@ -65,7 +78,12 @@ export function CourtsTab({
 }: Props) {
   const [playersCollapsed, setPlayersCollapsed] = useState(false);
   const [playersExpanded, setPlayersExpanded] = useState(false);
-  const courts = getEmptyCourts(queue.court_count);
+  const [overlay, setOverlay] = useState<Overlay>(null);
+
+  const courts = buildCourtViews(queue.court_count, matches);
+  const queuedMatches = getQueuedMatches(matches);
+  const activeCourts = courts.filter((court) => court.status === "occupied").length;
+  const matchAction = getMatchActionState(players, queue.game_mode, courts.length - activeCourts, queuedMatches.length);
 
   useEffect(() => {
     if (!playersExpanded) return;
@@ -80,6 +98,27 @@ export function CourtsTab({
 
   return (
     <div className="app-shell-safe-bottom flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top_left,#eff6ff,#f8fbff_36%,#eef6ff)] [scrollbar-gutter:stable_both-edges] md:overflow-hidden">
+      {overlay === "up-next" && (
+        <UpNextOverlay
+          matches={queuedMatches}
+          mode={queue.game_mode}
+          onRemove={onCancelQueuedMatch}
+          onClose={() => setOverlay(null)}
+        />
+      )}
+
+      {overlay === "courts" && (
+        <OverlayPanel
+          eyebrow="Live Courts"
+          title={queue.name}
+          description="Expanded view for all active courts."
+          maxWidthClassName="max-w-6xl"
+          onClose={() => setOverlay(null)}
+        >
+          <CourtsGrid courts={courts} readOnly />
+        </OverlayPanel>
+      )}
+
       {playersExpanded && (
         <div className="fixed inset-0 z-50 flex justify-center bg-slate-950/35 p-3 backdrop-blur-sm sm:p-4" onClick={() => setPlayersExpanded(false)}>
           <div className="h-full w-full max-w-5xl" onClick={(event) => event.stopPropagation()}>
@@ -126,14 +165,26 @@ export function CourtsTab({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={onShowAddPlayer}
-                    className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 cursor-pointer md:hidden"
-                  >
-                    Add Player
-                  </button>
+                  <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto md:justify-end">
+                    <button
+                      type="button"
+                      onClick={onStartMatch}
+                      disabled={matchAction.disabled || isStartingMatch}
+                      className="inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-blue-600 px-4.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto md:min-w-40"
+                    >
+                      {isStartingMatch ? "Picking teams..." : matchAction.label}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onShowAddPlayer}
+                      className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 cursor-pointer md:hidden"
+                    >
+                      Add Player
+                    </button>
+                  </div>
                 </div>
+
+                {matchAction.blockedByRest && <p className="mt-1.5 text-sm text-slate-500">{matchAction.hint}</p>}
               </div>
 
               <div className="p-5 sm:p-6 md:flex md:min-h-0 md:flex-1 md:flex-col">
@@ -170,9 +221,16 @@ export function CourtsTab({
                       <div className="inline-flex items-center gap-2 px-1 py-1 text-sm font-medium text-slate-600">
                         <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
                         <span>
-                          0 of {queue.court_count} courts in use
+                          {activeCourts} of {courts.length} courts in use
                         </span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setOverlay("courts")}
+                        className="inline-flex min-h-8 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 cursor-pointer"
+                      >
+                        View all courts
+                      </button>
                     </div>
 
                     {playersCollapsed && (
@@ -189,6 +247,7 @@ export function CourtsTab({
 
                 <div className="md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-1">
                   <CourtsGrid courts={courts} readOnly />
+                  <UpNextSection matches={queuedMatches} mode={queue.game_mode} onViewAll={() => setOverlay("up-next")} />
                 </div>
               </div>
             </section>

@@ -139,7 +139,40 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Step 7 in progress.
+Step 8 in progress.
+
+### ✅ Step 7: Matchmaking (SQL applied via MCP as `matchmaking`; owner OK 2026-10-20; committed; owner pushes)
+Generated types identical to the hand-written ones; security advisor = only the known intentional warnings.
+- DB `20261022120000_matchmaking.sql`:
+  - private helpers: `move_players_to_end`, `renumber_queued_matches`, `apply_match_start`
+    (new match: match_no+1, pair memory upsert pair/partner/opponent + singles opponent_count,
+    games_played+1, last_match_no, game-rate ledger "Game rate for match #N", idle off-court rest−1;
+    resume_existing: only back on court), `start_next_pending` (skips/cancels invalid queued matches
+    with the old cancel reasons), `fill_free_courts`.
+  - `create_match(queue, expected_version, team1[], team2[], balance_text, explanation)`: version check,
+    team size + availability re-check, random free court (old `random.choice`) → start, else queue
+    (players waiting, idle rest−1, moved to end). Returns {status, court_no, match_no, queue_length}.
+  - `cancel_queued_match` ("Queued match cancelled by operator"; players not on court → not waiting).
+  - `update_queue_settings` replaced: **growing courts now auto-starts Up Next** (`fill_free_courts`),
+    finishing step 6.
+  - Dry-run ports of the pytest scenarios passed: shrink re-queues court 3 at the front with no double
+    game-rate charge; growing back resumes it with the same match no; adding a court starts the oldest
+    queued match and bills it; rest counters drop on start and on queue; stale version / busy player /
+    wrong team size rejected; cancel frees players.
+- `lib/random.ts` (seeded mulberry32 for tests, `pickOne`, `shuffled`), `features/matchmaking/engine.ts`
+  (**line-by-line port of create_auto_match**: rested-first pool + tight-pool buffer, refusal message,
+  all penalties/weights, singles top-3 random excluding immediate rematch, doubles best score + jitter,
+  random sides, balance text, explanation text) + 15 tests.
+- `services/matches.ts` (snapshot read queue-first, createMatch, cancelQueuedMatch, listActiveMatches),
+  `features/matchmaking/match-view.ts` (court views, Up Next order, main button state, old toast text),
+  `use-matchmaking.ts` (pick in browser → create_match; **one automatic retry on a version conflict**),
+  `up-next.tsx`, `components/overlay-panel.tsx`; Courts tab: main button + rest hint, live courts with
+  names and timer, "X of N courts in use", "View all courts" overlay, Up Next (3) + overlay with Remove.
+- Behavior changes: main button doesn't count players on break as available (old did, then the API
+  refused); Up Next "View all" is always shown (old only with 4+ queued, so 1–3 couldn't be removed);
+  button says "Picking teams..." while saving.
+- Not yet: Finish Game, rest_games_needed on finish, Reset Matchmaking (step 8), Match Log (step 9).
+- Tests: 94 passing.
 
 ### ✅ Step 6: Settings (SQL applied via MCP as `queue_settings`; owner OK 2026-10-20; committed; owner pushes)
 - DB `update_queue_settings(queue, game_mode?, court_fee?, game_rate?, court_count?)` (null = unchanged):
@@ -148,8 +181,7 @@ Step 7 in progress.
   the FRONT of Up Next (court order, `resume_existing`, keeps match_no, players → Up Next, player order =
   free + displaced + already-waiting); bumps version. Dry-run with simulated matches matched the old
   behavior exactly.
-- **Grow → auto-start queued matches is NOT done yet**: it needs the start-match logic from step 7.
-  Step 7 must add `private.fill_free_courts` and call it from `update_queue_settings` when growing.
+- Grow → auto-start queued matches: done in step 7 (`private.fill_free_courts`).
 - Frontend: `updateQueueSettings` service + `useUpdateQueueSettings`; Courts tab court count +/-
   ("Courts updated" toast, readable error = old bug #7); Billing tab (temporary) with the ported
   **Billing setup** dialog (`billing-modal.tsx`, `billing-setup-form.tsx`, whole pesos via Zod).
@@ -252,7 +284,7 @@ Project **Qminton**, ref `ubiznutypxivkcvhzdxk`, region `ap-southeast-1`, create
 4. ~~Queues: list, create, delete, navbar switcher, landing page, home redirect to latest queue~~
 5. ~~Players: add, bulk add, remove, pause/resume, move to bottom, Players tab~~
 6. ~~Settings: billing setup, game-mode change rule, **court resize** (tricky)~~ (grow → auto-start finished in step 7)
-7. Matchmaking: TS scorer + tests ported from pytest (seeded RNG), start/queue match RPC, Up Next, cancel queued match
+7. ~~Matchmaking: TS scorer + tests ported from pytest (seeded RNG), start/queue match RPC, Up Next, cancel queued match~~
 8. Finish game + rest logic + auto-start next pending; reset matchmaking
 9. Match log
 10. Billing: ledger, adjustments, shared fee, full/partial/bulk payment, undo, CSV, share summary
