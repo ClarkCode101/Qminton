@@ -1,7 +1,7 @@
 import { act, fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CheckInQrDialog } from "@/features/check-in/check-in-qr-dialog";
+import { CheckInPanel } from "@/features/check-in/check-in-panel";
 import { setCheckIn, type CheckInSettings } from "@/services/check-in";
 import { renderApp } from "@/test/render-app";
 
@@ -9,18 +9,18 @@ vi.mock("@/services/check-in", () => ({ setCheckIn: vi.fn() }));
 
 const closed: CheckInSettings = { queue_id: "q1", token: "tok-1", is_open: false, updated_at: "2026-10-20T00:00:00Z" };
 
-describe("check-in QR dialog", () => {
+describe("QR check-in panel", () => {
   // Block body: a function returned from beforeEach would run as cleanup.
   beforeEach(() => {
     vi.mocked(setCheckIn).mockReset().mockResolvedValue(closed);
   });
 
-  function open() {
-    renderApp([{ path: "/", element: <CheckInQrDialog queueId="q1" queueName="Saturday" onClose={() => {}} /> }], "/");
+  function show() {
+    renderApp([{ path: "/", element: <CheckInPanel queueId="q1" queueName="Saturday" /> }], "/");
   }
 
   it("shows the QR for the check-in code (not the queue id) and opens check-in", async () => {
-    open();
+    show();
 
     expect(await screen.findByText("Check-in is closed")).toBeInTheDocument();
     expect(screen.getByTitle("QR code for player check-in")).toBeInTheDocument();
@@ -36,7 +36,7 @@ describe("check-in QR dialog", () => {
   });
 
   it("makes a new code after confirming", async () => {
-    open();
+    show();
 
     fireEvent.click(await screen.findByRole("button", { name: "New code" }));
     vi.mocked(setCheckIn).mockResolvedValue({ ...closed, token: "tok-2" });

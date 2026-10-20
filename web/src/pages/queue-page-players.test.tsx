@@ -16,6 +16,9 @@ import { renderApp } from "@/test/render-app";
 // Never talk to the real Supabase in tests.
 vi.mock("@/services/queues", () => ({ getQueue: vi.fn(), listQueues: vi.fn(async () => []) }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
+vi.mock("@/services/check-in", () => ({
+  setCheckIn: vi.fn(async () => ({ queue_id: "q1", token: "tok", is_open: false, updated_at: "2026-10-20T00:00:00Z" })),
+}));
 vi.mock("@/services/billing", () => ({ listLedger: vi.fn(async () => []), listBillingPlayers: vi.fn(async () => []) }));
 vi.mock("@/services/matches", () => ({ listActiveMatches: vi.fn(async () => []), listMatchHistory: vi.fn(async () => ({ entries: [], total: 0 })) }));
 vi.mock("@/services/players", () => ({
@@ -114,6 +117,18 @@ describe("queue page players", () => {
     });
 
     expect(bulkAddPlayers).toHaveBeenCalledWith("q1", [{ name: "Pedro", skill: "advance" }]);
+  });
+
+  it("has a QR check-in tab next to typing names", async () => {
+    renderApp(routes, "/queue/q1");
+
+    fireEvent.click((await screen.findAllByRole("button", { name: "Add Player" }))[0]);
+    const dialog = screen.getByRole("dialog", { name: "Add Players" });
+    expect(within(dialog).getByRole("tab", { name: "Type names" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(within(dialog).getByRole("tab", { name: "QR check-in" }));
+
+    expect(await within(dialog).findByText("Check-in is closed")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Player name")).not.toBeInTheDocument();
   });
 
   it("does nothing without a name", async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ClipboardEvent } from "react";
 
 import { CloseButton } from "@/components/close-button";
+import { CheckInPanel } from "@/features/check-in/check-in-panel";
 import { MAX_PLAYER_NAME_LENGTH, parseBulkNames } from "@/features/players/bulk-names";
 import { SkillSegmented } from "@/features/players/skill-picker";
 import type { NewPlayer, SkillLevel } from "@/services/players";
@@ -10,8 +11,9 @@ interface Props {
   existingNames: string[];
   // Should throw if saving fails; the modal then stays open with the list.
   onAdd: (players: NewPlayer[]) => Promise<void>;
-  // Opens the Check-in QR (players add themselves).
-  onShowCheckIn: () => void;
+  // For the "QR check-in" tab (players add themselves).
+  queueId: string;
+  queueName: string;
   onClose: () => void;
 }
 
@@ -23,9 +25,10 @@ interface Entry {
 // "Add Players": one way for 1 or 30 players (replaces the old Single / Bulk
 // tabs). Type a name + Enter, or paste a list; everyone waits in a list where
 // skills can be set, then one button adds them all. Names already in the queue
-// or too long are flagged and left out. Centered dialog on desktop, bottom
-// sheet on phones.
-export function AddPlayerModal({ existingNames, onAdd, onShowCheckIn, onClose }: Props) {
+// or too long are flagged and left out. A second tab shows the QR players can
+// scan to add themselves (owner's addition). Centered dialog on desktop,
+// bottom sheet on phones.
+export function AddPlayerModal({ existingNames, queueId, queueName, onAdd, onClose }: Props) {
   const ids = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState("");
@@ -34,6 +37,8 @@ export function AddPlayerModal({ existingNames, onAdd, onShowCheckIn, onClose }:
   const [defaultSkill, setDefaultSkill] = useState<SkillLevel>("beginner");
   const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Two ways to add: type names here, or let players check in with a QR code.
+  const [tab, setTab] = useState<"type" | "qr">("type");
 
   const inQueue = new Set(existingNames.map((name) => name.toLowerCase()));
   const problem = (entry: Entry): string | null => {
@@ -124,154 +129,180 @@ export function AddPlayerModal({ existingNames, onAdd, onShowCheckIn, onClose }:
         </div>
 
         <div className="flex items-start justify-between gap-3 px-5 pt-4 sm:px-6 sm:pt-5">
-          <div>
-            <h2 id={`${ids}-title`} className="text-lg font-semibold text-slate-800">
-              Add Players
-            </h2>
-            <p className="mt-0.5 text-sm text-slate-500">Type a name and pick a skill. Press Enter to add more, or paste a whole list.</p>
-          </div>
+          <h2 id={`${ids}-title`} className="text-lg font-semibold text-slate-800">
+            Add Players
+          </h2>
           <CloseButton label="Close add players" onClick={onClose} disabled={isSaving} size="sm" />
         </div>
 
-        <form
-          noValidate
-          className="mt-4 flex gap-2 px-5 sm:px-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            addNames(draft);
-            inputRef.current?.focus();
-          }}
-        >
-          <label htmlFor={`${ids}-name`} className="sr-only">
-            Player name
-          </label>
-          <input
-            ref={inputRef}
-            id={`${ids}-name`}
-            type="text"
-            value={draft}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              setNotice(null);
-            }}
-            onPaste={handlePaste}
-            placeholder="Player name"
-            autoComplete="off"
-            className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-500 focus:border-blue-300 focus:ring-2 focus:ring-sky-100"
-            autoFocus
-          />
-          <button
-            type="submit"
-            disabled={!draft.trim()}
-            className="inline-flex h-10 shrink-0 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Add to list
-          </button>
-        </form>
-        <div className="mt-2 flex items-center gap-2 px-5 sm:px-6">
-          <span className="text-xs font-medium text-slate-500">Skill:</span>
-          <SkillSegmented value={defaultSkill} onChange={setDefaultSkill} label="Skill level for the next player" fill />
-        </div>
-        {notice && <p className="mt-2 px-5 text-xs font-medium text-amber-700 sm:px-6">{notice}</p>}
-
-        {/* Owner's addition: players can add themselves by scanning a QR code. */}
-        <div className="mt-3 px-5 sm:px-6">
-          <button
-            type="button"
-            onClick={onShowCheckIn}
-            disabled={isSaving}
-            className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-sky-200 bg-sky-50/60 px-3 text-sm font-semibold text-sky-700 transition-colors hover:bg-sky-100 cursor-pointer disabled:opacity-50"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75h6v6h-6v-6Zm10.5 0h6v6h-6v-6Zm-10.5 10.5h6v6h-6v-6Z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 14.25h2.25v2.25h-2.25zM18 18h2.25v2.25H18zM18 14.25h2.25M14.25 18v2.25" />
-            </svg>
-            Let players check in with QR
-          </button>
+        <div role="tablist" aria-label="How to add players" className="mx-5 mt-3 flex rounded-xl bg-slate-100 p-1 sm:mx-6">
+          {(
+            [
+              ["type", "Type names"],
+              ["qr", "QR check-in"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={tab === value}
+              onClick={() => setTab(value)}
+              disabled={isSaving}
+              className={`inline-flex min-h-9 flex-1 items-center justify-center rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+                tab === value ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-slate-100 bg-slate-50/80">
-          {entries.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-slate-500 sm:px-6">
-              Adding one player? Just press the blue button.
-              <br />
-              Adding many? Press Enter after each name, or paste a list like “1. Clark / 2. Diego”.
-            </p>
-          ) : (
-            <>
-              <div className="flex flex-col gap-2 px-5 pt-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">To add ({entries.length})</p>
-                {entries.length >= 2 && (
-                  <div className="flex items-center gap-2">
-                    <span className="whitespace-nowrap text-xs font-medium text-slate-500">Set all:</span>
-                    <SkillSegmented value={sameSkill} onChange={setAll} label="Skill level for everyone" fill />
-                  </div>
-                )}
-              </div>
-              <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto px-5 pb-3 sm:px-6">
-                {entries.map((entry) => {
-                  const issue = problem(entry);
-                  return (
-                    // Phones: name + ✕ on top, skill picker underneath. From 640px: one line.
-                    <li
-                      key={entry.name.toLowerCase()}
-                      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 rounded-xl border bg-white px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] ${
-                        issue ? "border-amber-200" : "border-slate-100"
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-800">{entry.name}</p>
-                        {issue && <p className="text-xs font-medium text-amber-700">{issue}: will be skipped</p>}
+        {tab === "qr" ? (
+          <>
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto border-t border-slate-100 bg-slate-50/80 px-5 py-4 sm:px-6">
+              <CheckInPanel queueId={queueId} queueName={queueName} />
+            </div>
+            <div className="border-t border-slate-100 px-5 py-4 sm:px-6">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="mt-3 px-5 text-sm text-slate-500 sm:px-6">Type a name and pick a skill. Press Enter to add more, or paste a whole list.</p>
+
+            <form
+              noValidate
+              className="mt-3 flex gap-2 px-5 sm:px-6"
+              onSubmit={(event) => {
+                event.preventDefault();
+                addNames(draft);
+                inputRef.current?.focus();
+              }}
+            >
+              <label htmlFor={`${ids}-name`} className="sr-only">
+                Player name
+              </label>
+              <input
+                ref={inputRef}
+                id={`${ids}-name`}
+                type="text"
+                value={draft}
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  setNotice(null);
+                }}
+                onPaste={handlePaste}
+                placeholder="Player name"
+                autoComplete="off"
+                className="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-500 focus:border-blue-300 focus:ring-2 focus:ring-sky-100"
+                autoFocus
+              />
+              <button
+                type="submit"
+                disabled={!draft.trim()}
+                className="inline-flex h-10 shrink-0 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Add to list
+              </button>
+            </form>
+            <div className="mt-2 flex items-center gap-2 px-5 sm:px-6">
+              <span className="text-xs font-medium text-slate-500">Skill:</span>
+              <SkillSegmented value={defaultSkill} onChange={setDefaultSkill} label="Skill level for the next player" fill />
+            </div>
+            {notice && <p className="mt-2 px-5 text-xs font-medium text-amber-700 sm:px-6">{notice}</p>}
+
+
+            <div className="mt-4 flex min-h-0 flex-1 flex-col border-t border-slate-100 bg-slate-50/80">
+              {entries.length === 0 ? (
+                <p className="px-5 py-8 text-center text-sm text-slate-500 sm:px-6">
+                  Adding one player? Just press the blue button.
+                  <br />
+                  Adding many? Press Enter after each name, or paste a list like “1. Clark / 2. Diego”.
+                </p>
+              ) : (
+                <>
+                  <div className="flex flex-col gap-2 px-5 pt-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">To add ({entries.length})</p>
+                    {entries.length >= 2 && (
+                      <div className="flex items-center gap-2">
+                        <span className="whitespace-nowrap text-xs font-medium text-slate-500">Set all:</span>
+                        <SkillSegmented value={sameSkill} onChange={setAll} label="Skill level for everyone" fill />
                       </div>
-                      {!issue && (
-                        <div className="col-span-2 row-start-2 sm:col-span-1 sm:col-start-2 sm:row-start-1">
-                          <SkillSegmented
-                            value={entry.skill}
-                            onChange={(skill) =>
-                              setEntries((current) => current.map((item) => (item.name === entry.name ? { ...item, skill } : item)))
-                            }
-                            label={`Skill level for ${entry.name}`}
-                            fill
-                          />
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setEntries((current) => current.filter((item) => item.name !== entry.name))}
-                        aria-label={`Remove ${entry.name} from the list`}
-                        className="col-start-2 row-start-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 cursor-pointer sm:col-start-3"
-                      >
-                        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                          <path d="m6 6 8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                          <path d="m14 6-8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                        </svg>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          )}
-        </div>
+                    )}
+                  </div>
+                  <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto px-5 pb-3 sm:px-6">
+                    {entries.map((entry) => {
+                      const issue = problem(entry);
+                      return (
+                        // Phones: name + ✕ on top, skill picker underneath. From 640px: one line.
+                        <li
+                          key={entry.name.toLowerCase()}
+                          className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 rounded-xl border bg-white px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] ${
+                            issue ? "border-amber-200" : "border-slate-100"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-800">{entry.name}</p>
+                            {issue && <p className="text-xs font-medium text-amber-700">{issue}: will be skipped</p>}
+                          </div>
+                          {!issue && (
+                            <div className="col-span-2 row-start-2 sm:col-span-1 sm:col-start-2 sm:row-start-1">
+                              <SkillSegmented
+                                value={entry.skill}
+                                onChange={(skill) =>
+                                  setEntries((current) => current.map((item) => (item.name === entry.name ? { ...item, skill } : item)))
+                                }
+                                label={`Skill level for ${entry.name}`}
+                                fill
+                              />
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setEntries((current) => current.filter((item) => item.name !== entry.name))}
+                            aria-label={`Remove ${entry.name} from the list`}
+                            className="col-start-2 row-start-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 cursor-pointer sm:col-start-3"
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                              <path d="m6 6 8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                              <path d="m14 6-8 8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+            </div>
 
-        <div className="flex gap-3 border-t border-slate-100 px-5 py-4 sm:px-6">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSaving}
-            className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 cursor-pointer disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={isSaving || addCount === 0}
-            className="h-10 flex-2 rounded-xl bg-blue-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSaving ? "Adding..." : submitLabel}
-          </button>
-        </div>
+            <div className="flex gap-3 border-t border-slate-100 px-5 py-4 sm:px-6">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSaving}
+                className="h-10 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void submit()}
+                disabled={isSaving || addCount === 0}
+                className="h-10 flex-2 rounded-xl bg-blue-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSaving ? "Adding..." : submitLabel}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -228,6 +228,9 @@ Owner chose: players are added **straight to the queue** (no approval step); the
   public page `/join/:token` (`pages/check-in-page.tsx`: name + skill (must pick) → Join → "Welcome, Ana!
   You're #12", Watch the courts, Add someone else; closed / invalid-code states). Add Players modal has
   "Let players check in with QR". `getCheckInPath/Url` in `lib/routes.ts`. `database.ts` updated by hand.
+- Follow-up (owner: the QR button looked out of place inside the typing flow): Add Players now has two
+  tabs, **"Type names" | "QR check-in"**; the QR tab shows the check-in panel inside the modal
+  (`check-in-panel.tsx`, replaces `check-in-qr-dialog.tsx`) with a Done button. Tests: 136.
 - Tests: 135 passing.
 
 ### ✅ Speed fixes (owner request 2026-10-20: "the system feels slow"; committed `bdd641a`)
