@@ -136,6 +136,41 @@ describe("pickMatch: fairness", () => {
     }
   });
 
+  it("doubles: never repeats teammates from long ago when a new split exists (owner's rule)", () => {
+    // A+B and C+D were teammates 20 matches ago: the old 3-match cooldown has
+    // long expired, but the session count still keeps them apart.
+    const [a, b, c, d] = [player("A"), player("B"), player("C"), player("D")];
+    const memory = memoryWith({ partner: [[a, b, 5], [c, d, 5]], partnerCount: [[a, b, 1], [c, d, 1]] });
+    for (let seed = 1; seed <= 20; seed += 1) {
+      const result = names(run({ players: [a, b, c, d], memory, currentMatchNo: 25 }, seed));
+      const teams = [result.team1.join("+"), result.team2.join("+")];
+      expect(teams).not.toContain("A+B");
+      expect(teams).not.toContain("C+D");
+    }
+  });
+
+  it("doubles: a new partner beats a better skill balance", () => {
+    // Best balance would be Adv+Beg vs Adv+Beg, but both Adv+Beg pairs already played together.
+    const [adv1, adv2, beg1, beg2] = [
+      player("Adv1", { skill: "advance" }),
+      player("Adv2", { skill: "advance" }),
+      player("Beg1", { skill: "beginner" }),
+      player("Beg2", { skill: "beginner" }),
+    ];
+    const memory = memoryWith({ partnerCount: [[adv1, beg1, 1], [adv2, beg2, 1], [adv1, beg2, 1], [adv2, beg1, 1]] });
+    const result = names(run({ players: [adv1, adv2, beg1, beg2], memory, currentMatchNo: 30 }));
+    expect([result.team1.join("+"), result.team2.join("+")].sort()).toEqual(["Adv1+Adv2", "Beg1+Beg2"]);
+  });
+
+  it("doubles: when every split repeats, picks the pair that met the fewest times", () => {
+    const [a, b, c, d] = [player("A"), player("B"), player("C"), player("D")];
+    const memory = memoryWith({
+      partnerCount: [[a, b, 3], [c, d, 3], [a, c, 1], [b, d, 1], [a, d, 2], [b, c, 2]],
+    });
+    const result = names(run({ players: [a, b, c, d], memory, currentMatchNo: 40 }));
+    expect([result.team1.join("+"), result.team2.join("+")].sort()).toEqual(["A+C", "B+D"]);
+  });
+
   it("doubles: balances skill when nothing else differs", () => {
     const players = [
       player("Adv1", { skill: "advance" }),

@@ -43,11 +43,18 @@ export async function getMatchmakingSnapshot(queueId: string): Promise<{
   if (memoryResult.error) throw memoryResult.error;
   if (queuedResult.error) throw queuedResult.error;
 
-  const memory: PairMemory = { pair: new Map(), partner: new Map(), opponent: new Map(), opponentCount: new Map() };
+  const memory: PairMemory = {
+    pair: new Map(),
+    partner: new Map(),
+    opponent: new Map(),
+    opponentCount: new Map(),
+    partnerCount: new Map(),
+  };
   for (const row of memoryResult.data) {
     const key = pairKey(row.player_a, row.player_b);
     memory[row.kind].set(key, row.last_match_no);
-    if (row.kind === "opponent" && row.opponent_count > 0) memory.opponentCount.set(key, row.opponent_count);
+    if (row.kind === "opponent" && row.times_together > 0) memory.opponentCount.set(key, row.times_together);
+    if (row.kind === "partner" && row.times_together > 0) memory.partnerCount.set(key, row.times_together);
   }
 
   return { queue, players: playersResult.data, memory, queuedCount: queuedResult.count ?? 0 };

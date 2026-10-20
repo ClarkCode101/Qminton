@@ -13,6 +13,13 @@ const REPEAT_PAIR_WEIGHT = 100;
 const SKILL_DIFF_WEIGHT = 10;
 const RECENT_PARTNER_COOLDOWN = 3;
 const PARTNER_REPEAT_WEIGHT = 300;
+// New (owner's request, 2026-10-21): every earlier time two players were
+// teammates this session costs this much, and it never wears off. The cooldown
+// above counts matches across the whole queue, so with ~50 players it had
+// always expired by a player's next game. 250 is far above the largest skill
+// penalty (4 points x 10 = 40), so a new partner wins over a better-balanced
+// repeat; among new partners, skill balance still decides.
+const PARTNER_COUNT_WEIGHT = 250;
 const RECENT_OPPONENT_COOLDOWN = 2;
 const OPPONENT_REPEAT_WEIGHT = 60;
 const OPPONENT_COUNT_WEIGHT = 35;
@@ -34,13 +41,15 @@ export interface EnginePlayer {
 }
 
 // Last match number each pair met in, by kind (old pair_last_match /
-// partner_last_match / opponent_last_match), plus singles meet counts
-// (old opponent_pair_count). Keys come from pairKey().
+// partner_last_match / opponent_last_match), plus how many times they met:
+// as singles opponents (old opponent_pair_count) and as doubles teammates
+// (new). Keys come from pairKey().
 export interface PairMemory {
   pair: Map<string, number>;
   partner: Map<string, number>;
   opponent: Map<string, number>;
   opponentCount: Map<string, number>;
+  partnerCount: Map<string, number>;
 }
 
 export interface MatchmakingInput {
@@ -62,7 +71,7 @@ export function pairKey(a: number, b: number): string {
 }
 
 export function emptyPairMemory(): PairMemory {
-  return { pair: new Map(), partner: new Map(), opponent: new Map(), opponentCount: new Map() };
+  return { pair: new Map(), partner: new Map(), opponent: new Map(), opponentCount: new Map(), partnerCount: new Map() };
 }
 
 const isRested = (player: EnginePlayer) => player.restGamesNeeded <= 0;
@@ -101,6 +110,7 @@ function teamPartnerPenalty(team: EnginePlayer[], matchNo: number, memory: PairM
   for (let i = 0; i < team.length; i += 1) {
     for (let j = i + 1; j < team.length; j += 1) {
       penalty += rolePairPenalty(team[i], team[j], matchNo, memory.partner, RECENT_PARTNER_COOLDOWN, PARTNER_REPEAT_WEIGHT);
+      penalty += (memory.partnerCount.get(pairKey(team[i].id, team[j].id)) ?? 0) * PARTNER_COUNT_WEIGHT;
     }
   }
   return penalty;

@@ -229,7 +229,7 @@ export type Database = {
         Row: {
           kind: Database["public"]["Enums"]["pair_kind"]
           last_match_no: number
-          opponent_count: number
+          times_together: number
           player_a: number
           player_b: number
           queue_id: string
@@ -237,7 +237,7 @@ export type Database = {
         Insert: {
           kind: Database["public"]["Enums"]["pair_kind"]
           last_match_no: number
-          opponent_count?: number
+          times_together?: number
           player_a: number
           player_b: number
           queue_id: string
@@ -245,7 +245,7 @@ export type Database = {
         Update: {
           kind?: Database["public"]["Enums"]["pair_kind"]
           last_match_no?: number
-          opponent_count?: number
+          times_together?: number
           player_a?: number
           player_b?: number
           queue_id?: string

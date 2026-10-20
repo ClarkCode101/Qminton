@@ -139,7 +139,7 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
 ### ❓ Waiting on the owner
-Owner pushes, then tests self check-in on the deployed site. Then: Billing tab review or step 13.
+Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.
 
 ### ✅ Courts tab UI review (owner asked for items 1–7, 2026-10-20; committed `bdd641a`)
 Checked with headless Edge screenshots (1280, 1600, and a 390px phone frame) using a temporary
@@ -231,6 +231,29 @@ Owner chose: players are added **straight to the queue** (no approval step); the
 - Follow-up (owner: the QR button looked out of place inside the typing flow): Add Players now has two
   tabs, **"Type names" | "QR check-in"**; the QR tab shows the check-in panel inside the modal
   (`check-in-panel.tsx`, replaces `check-in-qr-dialog.tsx`) with a Done button. Tests: 136.
+
+### ✅ Never repeat teammates (owner's request 2026-10-21: ~50 players a session; SQL applied via MCP as `partner_count`; committed)
+Changes the old OrcaRally matchmaking on purpose. Problem found: the old "recent partner" cooldown is 3
+matches counted across the whole queue; with ~50 players and 4 courts a player plays about once every 12
+matches, so it had always expired by their next game. Simulation (50 players, 4 courts, 100 games):
+old rule repeated teammates 57 / 70 / 64 times (3 seeds), new rule 0; games per player stay 7–9
+(almost all 8), same as the old rule.
+- DB `20261027120000_partner_count.sql`: `pair_memory.opponent_count` → **`times_together`** (constraint
+  renamed too); old rows backfilled to 1; `private.apply_match_start` counts +1 for every pair / partner /
+  opponent row (was: singles opponents only). Dry-run `supabase/dry-runs/20261027_partner_count_dry_run.sql`
+  (old row + migration + tests) via MCP: 8/8 OK. Verified after applying.
+- Engine: `PairMemory.partnerCount`; every earlier time as teammates costs **250** (never wears off) on top
+  of the old recent-partner penalty. Skill balance (max 40) still decides among new partners; when every
+  split repeats, the pair that met the fewest times wins. Queue order / rest rules unchanged.
+- `services/matches.ts` reads `times_together` (partner → partnerCount, opponent → opponentCount).
+  `database.ts` column renamed by hand. Tests: 142 (`engine-session.test.ts` = the 50-player simulation).
+
+### ✅ Bottom navbar labels (owner OK 2026-10-21; committed `c43f00b`)
+The two icon-only navbar buttons (☰ queue list, ⊞ shortcuts) only named themselves on hover, which
+never happens on a tablet/phone. Now: icon + small label under it, **"Queues"** and **"More"** (the
+shortcuts icon became "⋯", the app's usual "more options" symbol; popup heading "More"). Hover
+tooltips removed. Buttons 48px tall (48px wide on phones, 56px from 640px); tabs a bit narrower on
+phones so "Billing" isn't cut off at 390px. `--app-bottom-nav-height` 3.75rem → 4.25rem.
 - Tests: 135 passing.
 
 ### ✅ Speed fixes (owner request 2026-10-20: "the system feels slow"; committed `bdd641a`)
