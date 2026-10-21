@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { newQueueFormSchema } from "@/features/queues/queue-form-schema";
 
-const valid = { name: "Saturday Session", gameMode: "doubles", courtFee: "50", gameRate: "20" } as const;
+const valid = { name: "Saturday Session", gameMode: "doubles", courtCount: 2, courtFee: "50", gameRate: "20" } as const;
 
-function firstError(input: Record<string, string>) {
+function firstError(input: Record<string, string | number>) {
   const result = newQueueFormSchema.safeParse({ ...valid, ...input });
   return result.success ? null : result.error.issues[0].message;
 }
@@ -14,6 +14,7 @@ describe("newQueueFormSchema", () => {
     expect(newQueueFormSchema.parse({ ...valid, name: "  Saturday  ", courtFee: " 50 " })).toEqual({
       name: "Saturday",
       gameMode: "doubles",
+      courtCount: 2,
       courtFee: 50,
       gameRate: 20,
     });
@@ -36,5 +37,12 @@ describe("newQueueFormSchema", () => {
     expect(firstError({ gameRate: "12.50" })).toBe("Use whole pesos only (no centavos)");
     expect(firstError({ courtFee: "abc" })).toBe("Enter a number");
     expect(firstError({ courtFee: "100001" })).toBe("Amount is too large");
+  });
+
+  it("allows 1 to 6 courts", () => {
+    expect(firstError({ courtCount: 1 })).toBeNull();
+    expect(firstError({ courtCount: 6 })).toBeNull();
+    expect(firstError({ courtCount: 0 })).not.toBeNull();
+    expect(firstError({ courtCount: 7 })).not.toBeNull();
   });
 });

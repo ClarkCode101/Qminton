@@ -17,6 +17,11 @@ function pesoAmount() {
     .transform((value) => (value === "" ? 0 : Number(value)));
 }
 
+// A new queue starts with this many courts (the database default too).
+export const DEFAULT_COURT_COUNT = 2;
+export const MIN_COURTS = 1;
+export const MAX_COURTS = 6;
+
 export const newQueueFormSchema = z.object({
   name: z
     .string()
@@ -24,6 +29,7 @@ export const newQueueFormSchema = z.object({
     .min(1, "Please enter a queue name")
     .max(60, "Queue name must be 60 characters or less"),
   gameMode: z.enum(["singles", "doubles"]),
+  courtCount: z.number().int().min(MIN_COURTS).max(MAX_COURTS),
   courtFee: pesoAmount(),
   gameRate: pesoAmount(),
 });

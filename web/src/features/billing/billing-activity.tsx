@@ -30,6 +30,7 @@ export function BillingActivity({ ledger, onShareSummary, onExportCsv, onClose }
       description="All ledger entries from court fees, game fees, payments, refunds, and shared charges."
       badge={hasQuery ? `${entries.length} of ${ledger.length}` : `${ledger.length} records`}
       onClose={onClose}
+      closeOnBackdrop
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

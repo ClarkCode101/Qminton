@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HomePage } from "@/pages/home-page";
 import { LandingPage } from "@/pages/landing-page";
 import { QueuePage } from "@/pages/queue-page";
-import { createQueue, deleteQueue, getQueue, listQueues, type QueueSummary } from "@/services/queues";
+import { createQueue, deleteQueue, getQueue, listQueues, updateQueueSettings, type QueueSummary } from "@/services/queues";
 import { renderApp } from "@/test/render-app";
 import { ShowPath } from "@/test/show-path";
 
@@ -14,6 +14,7 @@ vi.mock("@/services/queues", () => ({
   getQueue: vi.fn(),
   createQueue: vi.fn(),
   deleteQueue: vi.fn(),
+  updateQueueSettings: vi.fn(),
 }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
 vi.mock("@/services/billing", () => ({ listLedger: vi.fn(async () => []), listBillingPlayers: vi.fn(async () => []) }));
@@ -150,9 +151,9 @@ describe("queue pages", () => {
     const { router } = renderApp(routes, "/landing");
 
     fireEvent.click(await screen.findByRole("button", { name: "+ New Queue" }));
-    fireEvent.change(screen.getByLabelText("Queue Name"), { target: { value: " Friday Night " } });
+    fireEvent.change(screen.getByLabelText("Queue name"), { target: { value: " Friday Night " } });
     fireEvent.click(screen.getByRole("button", { name: /Singles/ }));
-    fireEvent.change(screen.getByLabelText("Court Fee per Player"), { target: { value: "60" } });
+    fireEvent.change(screen.getByLabelText("Court fee"), { target: { value: "60" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Create Queue" }));
     });
@@ -163,8 +164,42 @@ describe("queue pages", () => {
       courtFee: 60,
       gameRate: 0,
     });
+    // 2 courts is the default, so nothing else is saved.
+    expect(updateQueueSettings).not.toHaveBeenCalled();
     await screen.findByText("Queue not found");
     expect(router.state.location.pathname).toBe("/queue/created-id");
+  });
+
+  it("sets the chosen number of courts on the new queue", async () => {
+    listQueuesMock.mockResolvedValue([]);
+    createQueueMock.mockResolvedValue("created-id");
+    vi.mocked(updateQueueSettings).mockReset().mockResolvedValue({} as never);
+    getQueueMock.mockResolvedValue(null);
+    renderApp(routes, "/landing");
+
+    fireEvent.click(await screen.findByRole("button", { name: "+ New Queue" }));
+    fireEvent.change(screen.getByLabelText("Queue name"), { target: { value: "Big Night" } });
+    const courts = screen.getByRole("group", { name: "Courts" });
+    fireEvent.click(within(courts).getByRole("button", { name: "More courts" }));
+    fireEvent.click(within(courts).getByRole("button", { name: "More courts" }));
+    expect(within(courts).getByText("4")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create Queue" }));
+    });
+
+    expect(updateQueueSettings).toHaveBeenCalledWith("created-id", { courtCount: 4 });
+  });
+
+  it("stays open on a click outside; closes with Cancel", async () => {
+    listQueuesMock.mockResolvedValue([]);
+    renderApp(routes, "/landing");
+
+    fireEvent.click(await screen.findByRole("button", { name: "+ New Queue" }));
+    const dialog = screen.getByRole("dialog", { name: "New Queue" });
+    fireEvent.click(dialog.parentElement!);
+    expect(screen.getByRole("dialog", { name: "New Queue" })).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog", { name: "New Queue" })).not.toBeInTheDocument();
   });
 
   it("keeps the form open and explains decimal fees (old bug #5)", async () => {
@@ -172,8 +207,8 @@ describe("queue pages", () => {
     renderApp(routes, "/landing");
 
     fireEvent.click(await screen.findByRole("button", { name: "+ New Queue" }));
-    fireEvent.change(screen.getByLabelText("Queue Name"), { target: { value: "Friday" } });
-    fireEvent.change(screen.getByLabelText("Shuttle Rate per Game"), { target: { value: "12.5" } });
+    fireEvent.change(screen.getByLabelText("Queue name"), { target: { value: "Friday" } });
+    fireEvent.change(screen.getByLabelText("Shuttle rate"), { target: { value: "12.5" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Create Queue" }));
     });
@@ -190,13 +225,35 @@ describe("queue pages", () => {
     renderApp(routes, "/landing");
 
     fireEvent.click(await screen.findByRole("button", { name: "+ New Queue" }));
-    fireEvent.change(screen.getByLabelText("Queue Name"), { target: { value: "Friday" } });
+    fireEvent.change(screen.getByLabelText("Queue name"), { target: { value: "Friday" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Create Queue" }));
     });
 
     expect(await screen.findByText("Billing values cannot be negative")).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("navbar queue list: latest first, no search, delete from the ⋯ menu", async () => {
+    listQueuesMock.mockResolvedValue([
+      makeQueue({ id: "old", name: "Old Night", updatedAt: "2026-10-01T10:00:00Z" }),
+      makeQueue({ id: "new", name: "New Night", updatedAt: "2026-10-20T10:00:00Z" }),
+    ]);
+    renderApp(routes, "/landing");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Queues: show queue list" }));
+    const panel = screen.getByRole("heading", { name: "Queues" }).closest(".queue-list-panel") as HTMLElement;
+    const rows = within(panel).getAllByRole("listitem");
+    expect(rows.map((row) => within(row).getAllByRole("button")[0].textContent)).toEqual([
+      expect.stringContaining("New Night"),
+      expect.stringContaining("Old Night"),
+    ]);
+    expect(within(panel).queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: "See all queues →" })).toHaveAttribute("href", "/landing");
+
+    fireEvent.click(within(panel).getByRole("button", { name: "More actions for Old Night" }));
+    fireEvent.click(within(panel).getByRole("menuitem", { name: "Delete queue" }));
+    expect(screen.getByText('Delete "Old Night"? This cannot be undone.')).toBeInTheDocument();
   });
 
   it("deletes a queue after confirming", async () => {

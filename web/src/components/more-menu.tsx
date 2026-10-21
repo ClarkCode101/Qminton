@@ -9,7 +9,16 @@ export interface MoreMenuItem {
 
 // A "⋯" button with a small menu. Risky or rarely used actions (Delete queue,
 // Reset Matchmaking) live here so they can't be hit by accident.
-export function MoreMenu({ label, items, className = "relative" }: { label: string; items: MoreMenuItem[]; className?: string }) {
+interface MoreMenuProps {
+  label: string;
+  items: MoreMenuItem[];
+  className?: string;
+  // "below" (default) or "left" of the button. "left" stays inside its row,
+  // for menus in a scrolling list where a drop-down would be cut off.
+  placement?: "below" | "left";
+}
+
+export function MoreMenu({ label, items, className = "relative", placement = "below" }: MoreMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -54,7 +63,9 @@ export function MoreMenu({ label, items, className = "relative" }: { label: stri
       {isOpen && (
         <div
           role="menu"
-          className="queue-list-panel absolute right-0 top-9 z-30 w-48 overflow-hidden rounded-2xl border border-sky-200 bg-white p-1 shadow-[0_20px_40px_rgba(14,116,144,0.16)]"
+          className={`queue-list-panel absolute z-30 w-48 overflow-hidden rounded-2xl border border-sky-200 bg-white p-1 shadow-[0_20px_40px_rgba(14,116,144,0.16)] ${
+            placement === "left" ? "right-10 top-1/2 -translate-y-1/2" : "right-0 top-9"
+          }`}
         >
           {items.map((item) => (
             <button

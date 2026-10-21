@@ -2,11 +2,12 @@ import { useNavigate } from "react-router";
 
 import { ConfirmActionModal } from "@/components/confirm-action-modal";
 import { NewQueueModal } from "@/features/queues/new-queue-modal";
-import type { NewQueueFormOutput } from "@/features/queues/queue-form-schema";
+import { DEFAULT_COURT_COUNT, type NewQueueFormOutput } from "@/features/queues/queue-form-schema";
 import { useCreateQueue, useDeleteQueue } from "@/features/queues/use-queues";
 import { useToast } from "@/hooks/use-toast";
 import { getQueuePath } from "@/lib/routes";
 import { toUserMessage } from "@/services/errors";
+import { updateQueueSettings } from "@/services/queues";
 
 // The full "create a queue" flow used by Home, Landing and the navbar:
 // save it, then open the new queue. Errors show a toast (old bug #7: they
@@ -16,15 +17,25 @@ export function CreateQueueDialog({ onClose }: { onClose: () => void }) {
   const { showToast } = useToast();
   const createQueue = useCreateQueue();
 
-  const handleCreate = async (data: NewQueueFormOutput) => {
+  const handleCreate = async ({ courtCount, ...queue }: NewQueueFormOutput) => {
+    let queueId: string;
     try {
-      const queueId = await createQueue.mutateAsync(data);
-      onClose();
-      navigate(getQueuePath(queueId));
+      queueId = await createQueue.mutateAsync(queue);
     } catch (error) {
       showToast(toUserMessage(error, "Could not create the queue. Please try again."), "error");
       throw error;
     }
+    // A new queue starts with 2 courts; any other number is set right after.
+    // If that fails the queue still exists, so open it anyway (no duplicate on retry).
+    if (courtCount !== DEFAULT_COURT_COUNT) {
+      try {
+        await updateQueueSettings(queueId, { courtCount });
+      } catch {
+        showToast(`Queue created, but it has ${DEFAULT_COURT_COUNT} courts. Change them on the Courts tab.`, "error");
+      }
+    }
+    onClose();
+    navigate(getQueuePath(queueId));
   };
 
   return <NewQueueModal onCreate={handleCreate} onClose={onClose} />;

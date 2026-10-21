@@ -112,16 +112,13 @@ export function AddPlayerModal({ existingNames, queueId, queueName, onAdd, onClo
   const submitLabel = `Add ${addCount > 0 ? `${addCount} ` : ""}player${addCount === 1 ? "" : "s"}`;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={isSaving ? undefined : onClose}
-    >
+    // No close on a tap outside: only ✕, Cancel or Esc, so typed names aren't lost.
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 backdrop-blur-sm sm:items-center sm:p-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${ids}-title`}
         className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-2xl border border-sky-200 bg-white shadow-xl sm:max-w-xl sm:rounded-2xl"
-        onClick={(event) => event.stopPropagation()}
       >
         {/* Drag-handle look on phones (bottom sheet) */}
         <div className="flex justify-center pt-3 sm:hidden" aria-hidden="true">

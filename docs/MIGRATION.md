@@ -138,6 +138,31 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
   are caught; errors shown under fields instead of a toast; logo text "Qminton" instead of "OrcaRally".
 - Tests: 39 passing (schema, list helpers, elapsed timer, errors, page flows with mocked services).
 
+### ✅ New Queue redesign + dialogs don't close on an outside tap + Queues popup (owner's request 2026-10-21; committed)
+Owner chose: "clean + Courts" layout; close with ✕ / Cancel / Esc only; same for every dialog with a form.
+- `new-queue-modal.tsx`: one title (no "CREATE QUEUE" eyebrow / subtitle); Singles/Doubles as a segmented
+  switch; **Courts stepper** (1–6, default 2) next to it; fee fields are real input boxes with ₱, empty
+  instead of a pre-filled "0" (empty = 0 as before), labels "Court fee" / "Shuttle rate" with a hint each
+  ("Per player, once when they join" / "Per player, every game they play"); "You can change these later."
+  in the footer. Phones: fields stack, buttons full width.
+- Courts: `create_queue` is unchanged (always 2); `CreateQueueDialog` calls `updateQueueSettings` right
+  after when another number is chosen. If that fails the queue still opens (no duplicate on retry) with a
+  toast to change the courts on the Courts tab. Schema: `courtCount` + `DEFAULT_COURT_COUNT`/`MIN`/`MAX`.
+- No close on a tap outside: New Queue, Add Players, and every `BillingModal` form (billing setup, payments,
+  tools). `BillingModal` has `closeOnBackdrop` (default false); only Payment activity (read-only) passes it.
+  List overlays (Match Log, View all courts, expanded players) and confirm dialogs unchanged.
+- Checked with headless Edge screenshots at 1280×800 and 520 wide (temporary preview page, deleted).
+- Navbar queue list popup (owner: search + Latest/A-Z not needed; chose Delete in a "⋯" menu):
+  heading "Queues" + "+ New Queue"; no search / sort (always latest first, the open queue pinned on top
+  with a blue bar + check, `aria-current`); each row shows mode · players · last update (relative time);
+  the ✕ (looked like "close") → `MoreMenu` "⋯" → "Delete queue" (same confirm). `MoreMenu` got
+  `placement="left"` so the menu opens beside the button and isn't cut off by the scrolling list.
+  Footer link "See all queues →" (landing page, which keeps search + sort from 6 queues).
+  Checked with 12 queues (long name truncates, list scrolls past ~4–5). Found + fixed: on a phone held
+  sideways (844×390) the popup's header was cut off at the top; the list height now follows the screen
+  (`max-h-[max(4.5rem,min(18rem,calc(100dvh-14rem)))]`).
+- Tests: 160 passing.
+
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.
 

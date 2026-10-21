@@ -8,10 +8,21 @@ interface Props {
   onClose: () => void;
   children: ReactNode;
   maxWidthClassName?: string;
+  // Forms stay open on a tap outside (only ✕ or Esc close them), so nothing
+  // typed is lost. Read-only panels (activity log) pass true.
+  closeOnBackdrop?: boolean;
 }
 
 // The dialog frame used by the Billing tab's panels (ported from the old BillingModal).
-export function BillingModal({ title, description, badge, onClose, children, maxWidthClassName = "max-w-5xl" }: Props) {
+export function BillingModal({
+  title,
+  description,
+  badge,
+  onClose,
+  children,
+  maxWidthClassName = "max-w-5xl",
+  closeOnBackdrop = false,
+}: Props) {
   const titleId = useId();
 
   useEffect(() => {
@@ -23,7 +34,7 @@ export function BillingModal({ title, description, badge, onClose, children, max
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm" onClick={closeOnBackdrop ? onClose : undefined}>
       <div
         role="dialog"
         aria-modal="true"
