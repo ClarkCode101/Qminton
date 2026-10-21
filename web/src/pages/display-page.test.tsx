@@ -57,18 +57,25 @@ describe("public display", () => {
     renderApp(routes, "/queue/q1/display");
 
     expect(await screen.findByRole("heading", { name: "Saturday Session" })).toBeInTheDocument();
-    expect(screen.getByText("Doubles session")).toBeInTheDocument();
-    expect(screen.getByText("On court 1")).toBeInTheDocument();
-    expect(screen.getByText("Coming up 4")).toBeInTheDocument();
-    expect(screen.getByText("Ana")).toBeInTheDocument();
-    expect(screen.getByText("Court 1")).toBeInTheDocument();
+    expect(screen.getByText("Doubles")).toBeInTheDocument();
+    expect(screen.getByText("Live")).toBeInTheDocument();
+
+    // Every court, playing or free.
+    const court2 = screen.getByRole("region", { name: "Court 2" });
+    expect(within(court2).getByText("Ana")).toBeInTheDocument();
+    expect(within(court2).getByText("Di")).toBeInTheDocument();
+    expect(within(court2).getByLabelText(/Playing for/)).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Court 1" })).getByText("Available")).toBeInTheDocument();
 
     const upNext = screen.getByRole("region", { name: "Up Next" });
-    expect(within(upNext).getByText("Match 1")).toBeInTheDocument();
     expect(within(upNext).getByText("Eve + Fay")).toBeInTheDocument();
-    expect(within(upNext).getByText("4 queued")).toBeInTheDocument();
+    expect(within(upNext).getByText("Gus + Hal")).toBeInTheDocument();
+    expect(within(upNext).getByText("+3 more")).toBeInTheDocument();
 
-    expect(screen.getByRole("link", { name: "Organizer View" })).toHaveAttribute("href", "/queue/q1");
+    // The QR is in the organizer's More menu, not on the display (owner).
+    expect(screen.queryByTitle("QR code for the live display")).not.toBeInTheDocument();
+    // Players look at this screen: no way to the organizer screen (owner).
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
   it("reloads when the queue changes on another device", async () => {
@@ -89,7 +96,7 @@ describe("public display", () => {
         await vi.advanceTimersByTimeAsync(400);
       });
 
-      expect(await screen.findByText("No upcoming matches yet.")).toBeInTheDocument();
+      expect(await screen.findByText("No matches waiting")).toBeInTheDocument();
       expect(getDisplay).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();

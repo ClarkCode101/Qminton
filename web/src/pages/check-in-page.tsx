@@ -1,11 +1,9 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState, type ReactNode } from "react";
-import { useParams, useSearchParams } from "react-router";
+import { useParams } from "react-router";
 
 import { LoadError } from "@/components/load-error";
 import { QmintonMark } from "@/components/qminton-logo";
-import { LiveCourts } from "@/features/display/live-courts";
-import { displayKeys } from "@/features/display/use-display";
 import { MAX_PLAYER_NAME_LENGTH } from "@/features/players/bulk-names";
 import { SkillSegmented } from "@/features/players/skill-picker";
 import { useQueueLiveUpdates } from "@/hooks/use-queue-live-updates";
@@ -39,13 +37,8 @@ export function CheckInPage() {
     queryFn: () => getSignupPage(token, codes),
     placeholderData: keepPreviousData,
   });
-  // The list (and the courts, once live) update as others sign up, cancel or play.
-  const queryClient = useQueryClient();
-  const queueId = infoQuery.data?.queueId ?? "";
-  useQueueLiveUpdates(queueId, () => {
-    void infoQuery.refetch();
-    void queryClient.invalidateQueries({ queryKey: displayKeys.detail(queueId) });
-  });
+  // The list updates live as others sign up or cancel.
+  useQueueLiveUpdates(infoQuery.data?.queueId ?? "", () => void infoQuery.refetch());
 
   const saveMine = (next: MySignup[]) => {
     writeMySignups(token, next);
@@ -247,10 +240,8 @@ function SignupForm({
 }
 
 // ---------------------------------------------------------------------------
-// Live session: self check-in, and a "View courts" button that shows who is
-// playing on this same page (one QR for joining and watching; owner's request
-// 2026-10-21). The courts view is "?view=courts", so the phone's back button
-// returns to the form. No "Organizer View" link here: players only.
+// Live session: self check-in. Players follow the courts with the QR on the
+// public display instead (the "View courts" view here was dropped, owner 2026-10-21).
 // ---------------------------------------------------------------------------
 function CheckInView({
   token,
@@ -273,7 +264,6 @@ function CheckInView({
   // Shown after leaving the queue.
   const [leftMessage, setLeftMessage] = useState<string | null>(null);
   const join = useMutation({ mutationFn: () => checkIn(token, { name: name.trim(), skill: skill ?? "beginner" }) });
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const onLeft = (result: { name: string; refunded: number }, code: string) => {
     onMineChange(removeMyCheckIn(token, code));
@@ -290,7 +280,6 @@ function CheckInView({
   // someone the organizer removed drops off). The welcome uses the join just made
   // while that list reloads (a moment).
   const mine = info.mine;
-  const joinedNames = joined && !mine.some((item) => item.code === joined.code) ? [...mine.map((item) => item.name), joined.name] : mine.map((item) => item.name);
   const showJoined = (joined !== null || mine.length > 0) && !addingAnother;
 
   const leftNotice = leftMessage && (
@@ -299,49 +288,23 @@ function CheckInView({
     </p>
   );
 
-  // Once joined, watching is the main thing left to do: the blue button.
-  const viewCourts = (
-    <button
-      type="button"
-      onClick={() => setSearchParams({ view: "courts" })}
-      className={showJoined ? primaryButtonClass : secondaryButtonClass}
-    >
-      View courts
-    </button>
-  );
-
-  if (searchParams.get("view") === "courts") {
-    const backLabel = showJoined || !info.isOpen ? "Back" : "Join the queue";
-    return (
-      <Screen wide>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">{info.queueName}</p>
-        <LiveCourts queueId={info.queueId} highlight={joinedNames} />
-        <div className="mt-6 flex justify-center">
-          <button type="button" onClick={() => setSearchParams({})} className={`${primaryButtonClass} sm:max-w-xs`}>
-            {backLabel}
-          </button>
-        </div>
-      </Screen>
-    );
-  }
-
   if (showJoined) {
     return (
-      <Screen below={viewCourts}>
+      <Screen>
         {leftNotice}
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600">You're in</p>
         {joined ? (
           <>
             <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">Welcome, {joined.name}!</h1>
             <p className="mt-2 text-sm text-slate-600">
-              You're <span className="font-semibold text-slate-900">#{joined.position}</span> in line for {info.queueName}. Tap
-              View courts to see when you play.
+              You're <span className="font-semibold text-slate-900">#{joined.position}</span> in line for {info.queueName}. The
+              organizer will call you to a court.
             </p>
           </>
         ) : (
           <>
             <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">{info.queueName}</h1>
-            <p className="mt-2 text-sm text-slate-600">Tap View courts to see when you play.</p>
+            <p className="mt-2 text-sm text-slate-600">The organizer will call you to a court.</p>
           </>
         )}
         {/* Each name can leave from here (owner's request): not while playing / in Up Next. */}
@@ -368,7 +331,7 @@ function CheckInView({
 
   if (!info.isOpen) {
     return (
-      <Screen below={viewCourts}>
+      <Screen>
         {leftNotice}
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">{info.queueName}</p>
         <h1 className="mt-1 text-xl font-black tracking-tight text-slate-900">Check-in is closed</h1>
@@ -382,7 +345,7 @@ function CheckInView({
   const canJoin = trimmed.length > 0 && !nameError && skill !== null && !join.isPending;
 
   return (
-    <Screen below={viewCourts}>
+    <Screen>
       {leftNotice}
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">Join the queue</p>
       <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">{info.queueName}</h1>
@@ -546,18 +509,14 @@ function NameField({
   );
 }
 
-// `below` = shown under the card (the "View courts" button).
-// `wide` = the courts view: phone width on phones, then wider so the courts
-// sit 2 per row on a tablet and 3 on a laptop (the court cards follow their space).
-function Screen({ children, below, wide = false }: { children: ReactNode; below?: ReactNode; wide?: boolean }) {
+function Screen({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen items-start justify-center bg-[radial-gradient(circle_at_top,#dbeafe,#f8fafc_35%,#eef6ff)] px-4 py-10 sm:items-center">
-      <div className={`w-full ${wide ? "max-w-sm sm:max-w-2xl lg:max-w-5xl" : "max-w-sm"}`}>
+      <div className="w-full max-w-sm">
         <div className="mb-6 flex justify-center">
           <QmintonMark size={48} />
         </div>
         <div className="rounded-[28px] border border-sky-200 bg-white p-6 shadow-sm">{children}</div>
-        {below && <div className="mt-4">{below}</div>}
       </div>
     </div>
   );

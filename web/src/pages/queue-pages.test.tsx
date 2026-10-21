@@ -331,8 +331,7 @@ describe("queue pages", () => {
     fireEvent.click(await screen.findByRole("button", { name: "More: open shortcuts" }));
     const display = screen.getByRole("group", { name: "Public display" });
     expect(within(display).getByRole("link", { name: /Open display/ })).toHaveAttribute("href", "/queue/q1/display");
-    // No display QR any more: players scan the join QR (it has "View courts").
-    expect(within(display).queryByRole("button", { name: "Show QR code" })).not.toBeInTheDocument();
+    expect(within(display).getByRole("button", { name: "Show QR code" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
     expect(screen.queryByText("Landing")).not.toBeInTheDocument();
 

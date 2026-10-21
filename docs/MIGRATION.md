@@ -327,6 +327,24 @@ right) **without animation**, so both were thrown away and the screen stays as c
   "Joined from this phone" rows have "Leave queue" → "Leave the queue, Ana? Leave / Stay"; message after
   leaving ("… The ₱50 court fee was taken off."). `leaveQueue` service. Test player fixtures got
   `leave_code_hash: null`. Tests: 187.
+- **Public display redesigned for a TV** (owner, 2026-10-21; chose Up Next as a bottom strip, no Organizer
+  View button, a Full screen button). `pages/display-page.tsx`: one thin header (name, green "Live" ·
+  Singles/Doubles, a clock, "Full screen" that hides itself while full screen / where the browser can't),
+  the courts fill the screen with no scrolling from 1024px (`h-dvh`): 1 | 2 side by side | 3–4 = 2×2 |
+  5–6 = 3×2; Up Next = one strip at the bottom (next 3 + "+N more", "No matches waiting"). Removed: "LIVE
+  PLAYER DISPLAY", the subtitles, "On court N / Coming up N" chips, "N queued", the Organizer View link.
+  New `features/display/display-court.tsx`: the card fills its grid cell (never taller than ~60% of its
+  width, so a court keeps a court's shape; centered), names / timer / "Court N" sized with container units
+  (`cqi`) so they grow with the screen; same colors and court lines as the Courts tab. Timer hook moved to
+  `features/courts/use-elapsed-time.ts` (shared). Phones: one court per row, Up Next list under them.
+  Checked at 1920×1080 with 1, 2, 3, 4 and 6 courts, 1280×800 and 390px. Tests: 187.
+- **"View courts" dropped from the join page; display QR back in the More menu** (owner, 2026-10-21). The
+  join page is only for joining / "You're in" / leaving again ("The organizer will call you to a court.");
+  `live-courts.tsx`, the `?view=courts` view, `useDisplayQuery` and `CourtsGrid highlight` removed.
+  (Tried first: the QR in the display's header; owner wanted it in More instead.) "Public display" in More
+  = Open display + **Show QR code** (dialog: big QR, link, Copy link, Open display), the step 11 version
+  again (`display-qr.tsx` + its test, `getQueueDisplayUrl` restored). The display itself has no QR.
+  Tests: 188.
 
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.

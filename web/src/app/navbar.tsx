@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router";
 import { NAV_TABS, type NavTab } from "@/app/nav-tabs";
 import { useAuth } from "@/features/auth/auth-context";
 import { useSignOut } from "@/features/auth/use-sign-out";
+import { DisplayQrDialog } from "@/features/display/display-qr";
 import { CreateQueueDialog, DeleteQueueDialog } from "@/features/queues/queue-dialogs";
 import { QueueSwitcherPanel } from "@/features/queues/queue-switcher-panel";
 import { EditQueueDialog } from "@/features/queues/rename-queue-dialog";
@@ -42,10 +43,9 @@ const groupLabelClass = "px-3 pb-1 pt-2 text-[11px] font-semibold uppercase trac
 
 // Floating bottom navbar (ported from the old Navbar): queue list, tabs, shortcuts.
 // New in Qminton: "Log out" in More, because there is now a login.
-// More menu redesigned 2026-10-21 (owner): "Public display" group (Open display),
-// then who is signed in + Log out. "Landing" left out: the Queues popup has
-// "See all queues". The display QR was removed (owner): players scan the join QR,
-// which has "View courts"; a big screen is opened by the organizer.
+// More menu redesigned 2026-10-21 (owner): "Public display" group (Open display,
+// Show QR code: players follow the courts on their phone), then who is signed in
+// + Log out. "Landing" left out: the Queues popup has "See all queues".
 export function Navbar({ queueId, activeTab, onTabChange }: Props) {
   const navigate = useNavigate();
   const { signOut, isSigningOut } = useSignOut();
@@ -53,6 +53,7 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
   const [showQueueList, setShowQueueList] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showNewQueue, setShowNewQueue] = useState(false);
+  const [showDisplayQr, setShowDisplayQr] = useState(false);
   const [queuePendingDeletion, setQueuePendingDeletion] = useState<{ id: string; name: string } | null>(null);
   const [queueToEdit, setQueueToEdit] = useState<QueueSummary | null>(null);
   const navRef = useRef<HTMLDivElement | null>(null);
@@ -103,6 +104,8 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
           onDeleted={() => handleQueueDeleted(queuePendingDeletion.id)}
         />
       )}
+
+      {showDisplayQr && queueId && <DisplayQrDialog queueId={queueId} onClose={() => setShowDisplayQr(false)} />}
 
       {queueToEdit && <EditQueueDialog queue={queueToEdit} onClose={() => setQueueToEdit(null)} />}
 
@@ -213,6 +216,20 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
                         <span className="flex-1">Open display</span>
                         <span className="text-[11px] font-medium text-slate-400">New tab</span>
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowShortcuts(false);
+                          setShowDisplayQr(true);
+                        }}
+                        className={shortcutRowClass}
+                      >
+                        <ShortcutIcon>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75h6v6h-6v-6Zm10.5 0h6v6h-6v-6Zm-10.5 10.5h6v6h-6v-6Z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 14.25h2.25v2.25h-2.25zM18 18h2.25v2.25H18zM18 14.25h2.25M14.25 18v2.25" />
+                        </ShortcutIcon>
+                        Show QR code
+                      </button>
                     </div>
                   )}
 

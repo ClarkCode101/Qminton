@@ -1,19 +1,5 @@
-import { useEffect, useState } from "react";
-
-import { formatElapsed, type CourtView } from "@/features/courts/court-view";
-
-// Re-renders every second while a match is running.
-function useElapsedTime(startedAt: string | null): string {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!startedAt) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [startedAt]);
-
-  return formatElapsed(startedAt, now);
-}
+import type { CourtView } from "@/features/courts/court-view";
+import { useElapsedTime } from "@/features/courts/use-elapsed-time";
 
 function CourtCard({
   court,
@@ -21,14 +7,12 @@ function CourtCard({
   readOnly,
   compact,
   dense,
-  highlight,
 }: {
   court: CourtView;
   onFinish?: (courtNo: number) => void;
   readOnly: boolean;
   compact?: boolean;
   dense?: boolean;
-  highlight?: Set<string>;
 }) {
   const isAvailable = court.status === "available";
   const elapsed = useElapsedTime(isAvailable ? null : court.startedAt);
@@ -107,9 +91,7 @@ function CourtCard({
                 {team.map((player) => (
                   <span
                     key={player.id}
-                    className={`${tightCompact ? "text-[13px]" : compact ? "text-sm" : "text-base"} max-w-full truncate font-black leading-tight text-white ${
-                      highlight?.has(player.name.toLowerCase()) ? "underline decoration-2 underline-offset-2" : ""
-                    }`}
+                    className={`${tightCompact ? "text-[13px]" : compact ? "text-sm" : "text-base"} max-w-full truncate font-black leading-tight text-white`}
                   >
                     {player.name}
                   </span>
@@ -154,24 +136,14 @@ interface Props {
   readOnly?: boolean;
   compact?: boolean;
   dense?: boolean;
-  // Lower-case names to underline (the join page: people joined from this phone).
-  highlight?: Set<string>;
 }
 
 // Ported from the old CourtsGrid: the Courts tab (with Finish Game), the
-// courts overlay, the public display, the join page's courts view and the
-// empty home workspace (read-only).
-export function CourtsGrid({ courts, onFinish, readOnly = false, compact = false, dense = false, highlight }: Props) {
+// courts overlay and the empty home workspace (read-only). The public display
+// has its own TV-sized card (features/display/display-court.tsx).
+export function CourtsGrid({ courts, onFinish, readOnly = false, compact = false, dense = false }: Props) {
   const cards = courts.map((court) => (
-    <CourtCard
-      key={court.courtNo}
-      court={court}
-      onFinish={onFinish}
-      readOnly={readOnly}
-      compact={compact}
-      dense={dense}
-      highlight={highlight}
-    />
+    <CourtCard key={court.courtNo} court={court} onFinish={onFinish} readOnly={readOnly} compact={compact} dense={dense} />
   ));
 
   if (compact) {
