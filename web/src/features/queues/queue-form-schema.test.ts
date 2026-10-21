@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { newQueueFormSchema } from "@/features/queues/queue-form-schema";
 
-const valid = { name: "Saturday Session", gameMode: "doubles", courtCount: 2, courtFee: "50", gameRate: "20" } as const;
+const valid = {
+  name: "Saturday Session",
+  gameMode: "doubles",
+  courtCount: 2,
+  courtFee: "50",
+  gameRate: "20",
+  when: "now",
+  startsAt: "",
+} as const;
 
 function firstError(input: Record<string, string | number>) {
   const result = newQueueFormSchema.safeParse({ ...valid, ...input });
@@ -17,6 +25,8 @@ describe("newQueueFormSchema", () => {
       courtCount: 2,
       courtFee: 50,
       gameRate: 20,
+      when: "now",
+      startsAt: "",
     });
   });
 
@@ -37,6 +47,13 @@ describe("newQueueFormSchema", () => {
     expect(firstError({ gameRate: "12.50" })).toBe("Use whole pesos only (no centavos)");
     expect(firstError({ courtFee: "abc" })).toBe("Enter a number");
     expect(firstError({ courtFee: "100001" })).toBe("Amount is too large");
+  });
+
+  it("needs a date and time only when planning for later", () => {
+    expect(firstError({ when: "now", startsAt: "" })).toBeNull();
+    expect(firstError({ when: "later", startsAt: "" })).toBe("Please pick the date and time");
+    expect(firstError({ when: "later", startsAt: "not a date" })).toBe("Please pick the date and time");
+    expect(firstError({ when: "later", startsAt: "2026-10-25T19:00" })).toBeNull();
   });
 
   it("allows 1 to 6 courts", () => {

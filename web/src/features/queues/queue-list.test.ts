@@ -16,6 +16,9 @@ function makeQueue(name: string, updatedAt: string, playerCount = 0): QueueSumma
     totalCollected: 0,
     createdAt: updatedAt,
     updatedAt,
+    status: "live",
+    startsAt: null,
+    signupCount: 0,
   };
 }
 

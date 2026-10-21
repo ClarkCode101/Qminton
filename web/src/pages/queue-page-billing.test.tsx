@@ -40,6 +40,8 @@ vi.mock("@/services/billing", () => ({
 const queue: Queue = {
   id: "q1",
   owner_id: "u1",
+  status: "live",
+  starts_at: null,
   name: "Saturday Session",
   game_mode: "doubles",
   court_fee: 100,

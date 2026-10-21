@@ -1,20 +1,40 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CheckInPage } from "@/pages/check-in-page";
-import { checkIn, getCheckIn } from "@/services/check-in";
+import { checkIn } from "@/services/check-in";
+import { cancelSignup, getSignupPage, signUp, type SignupPage } from "@/services/signups";
 import { renderApp } from "@/test/render-app";
 
 // Never talk to the real Supabase in tests.
-vi.mock("@/services/check-in", () => ({ getCheckIn: vi.fn(), checkIn: vi.fn() }));
+vi.mock("@/services/check-in", () => ({ checkIn: vi.fn() }));
+vi.mock("@/services/signups", () => ({ getSignupPage: vi.fn(), signUp: vi.fn(), cancelSignup: vi.fn() }));
 
 const routes = [{ path: "/join/:token", element: <CheckInPage /> }];
-const openInfo = { queueId: "q1", queueName: "Saturday Session", gameMode: "doubles" as const, isOpen: true };
+const livePage: SignupPage = {
+  queueId: "q1",
+  queueName: "Saturday Session",
+  gameMode: "doubles",
+  status: "live",
+  startsAt: null,
+  courtFee: 50,
+  gameRate: 20,
+  isOpen: true,
+  going: [],
+  mine: [],
+};
+const plannedPage: SignupPage = {
+  ...livePage,
+  status: "planned",
+  startsAt: "2026-10-25T11:00:00Z",
+  going: ["Ana", "Ben"],
+};
 
-describe("player self check-in page", () => {
+describe("player self check-in page (live session)", () => {
   // Block body: a function returned from beforeEach would run as cleanup.
   beforeEach(() => {
-    vi.mocked(getCheckIn).mockReset().mockResolvedValue(openInfo);
+    window.localStorage.clear();
+    vi.mocked(getSignupPage).mockReset().mockResolvedValue(livePage);
     vi.mocked(checkIn).mockReset();
   });
 
@@ -55,17 +75,88 @@ describe("player self check-in page", () => {
   });
 
   it("says when check-in is closed", async () => {
-    vi.mocked(getCheckIn).mockResolvedValue({ ...openInfo, isOpen: false });
+    vi.mocked(getSignupPage).mockResolvedValue({ ...livePage, isOpen: false });
     renderApp(routes, "/join/abc");
 
     expect(await screen.findByText("Check-in is closed")).toBeInTheDocument();
     expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
   });
 
-  it("says when the code is no longer valid", async () => {
-    vi.mocked(getCheckIn).mockResolvedValue(null);
+  it("says when the link is no longer valid", async () => {
+    vi.mocked(getSignupPage).mockResolvedValue(null);
     renderApp(routes, "/join/old");
 
-    expect(await screen.findByText("This QR code is no longer valid")).toBeInTheDocument();
+    expect(await screen.findByText("This link is no longer valid")).toBeInTheDocument();
+  });
+});
+
+describe("sign-up page (planned session)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.mocked(getSignupPage).mockReset().mockResolvedValue(plannedPage);
+    vi.mocked(signUp).mockReset();
+    vi.mocked(cancelSignup).mockReset();
+    vi.mocked(checkIn).mockReset();
+  });
+
+  it("shows the date, fees and who is going", async () => {
+    renderApp(routes, "/join/abc");
+
+    expect(await screen.findByRole("heading", { name: "Saturday Session" })).toBeInTheDocument();
+    expect(screen.getByText(/Court fee ₱50 · ₱20 per game/)).toBeInTheDocument();
+    const going = screen.getByRole("list", { name: "Going" });
+    expect(within(going).getByText("Ana")).toBeInTheDocument();
+    expect(within(going).getByText("Ben")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Going (2)" })).toBeInTheDocument();
+  });
+
+  it("signs up, keeps the cancel code on this phone, and can cancel", async () => {
+    vi.mocked(signUp).mockResolvedValue({ name: "Cy", position: 3, code: "code-cy" });
+    renderApp(routes, "/join/abc");
+
+    fireEvent.change(await screen.findByLabelText("Your name"), { target: { value: "Cy" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Advanced" }));
+    // After signing up, the page reads again with this phone's code and sees Cy as "mine".
+    vi.mocked(getSignupPage).mockResolvedValue({ ...plannedPage, going: ["Ana", "Ben", "Cy"], mine: [{ code: "code-cy", name: "Cy" }] });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+    });
+
+    expect(signUp).toHaveBeenCalledWith("abc", { name: "Cy", skill: "advance" });
+    expect(checkIn).not.toHaveBeenCalled();
+    expect(await screen.findByText("You're in, Cy! You're #3 on the list.")).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem("qminton:signups:abc") ?? "[]")).toEqual([{ code: "code-cy", name: "Cy" }]);
+    expect(vi.mocked(getSignupPage)).toHaveBeenLastCalledWith("abc", ["code-cy"]);
+
+    vi.mocked(cancelSignup).mockResolvedValue();
+    vi.mocked(getSignupPage).mockResolvedValue(plannedPage);
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Cancel my spot" }));
+    });
+
+    expect(cancelSignup).toHaveBeenCalledWith("abc", "code-cy");
+    expect(window.localStorage.getItem("qminton:signups:abc")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel my spot" })).not.toBeInTheDocument();
+  });
+
+  it("only shows a cancel button for spots made on this phone", async () => {
+    window.localStorage.setItem("qminton:signups:abc", JSON.stringify([{ code: "code-ben", name: "Ben" }]));
+    vi.mocked(getSignupPage).mockResolvedValue({ ...plannedPage, mine: [{ code: "code-ben", name: "Ben" }] });
+    renderApp(routes, "/join/abc");
+
+    expect(await screen.findByText("✓ Ben")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Cancel/ })).toHaveLength(1);
+    expect(vi.mocked(getSignupPage)).toHaveBeenCalledWith("abc", ["code-ben"]);
+    // They can still sign up a friend.
+    expect(screen.getByText("Sign up someone else")).toBeInTheDocument();
+  });
+
+  it("says when sign-ups are closed", async () => {
+    vi.mocked(getSignupPage).mockResolvedValue({ ...plannedPage, isOpen: false });
+    renderApp(routes, "/join/abc");
+
+    expect(await screen.findByText("Sign-ups are closed. Please ask the organizer.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Going" })).toBeInTheDocument();
   });
 });

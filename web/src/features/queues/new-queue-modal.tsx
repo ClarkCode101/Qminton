@@ -59,10 +59,19 @@ export function NewQueueModal({ onCreate, onClose }: Props) {
     formState: { errors, isSubmitting },
   } = useForm<NewQueueFormInput, unknown, NewQueueFormOutput>({
     resolver: zodResolver(newQueueFormSchema),
-    defaultValues: { name: "", gameMode: "doubles", courtCount: DEFAULT_COURT_COUNT, courtFee: "", gameRate: "" },
+    defaultValues: {
+      name: "",
+      gameMode: "doubles",
+      courtCount: DEFAULT_COURT_COUNT,
+      courtFee: "",
+      gameRate: "",
+      when: "now",
+      startsAt: "",
+    },
   });
   const selectedMode = useWatch({ control, name: "gameMode" });
   const courtCount = useWatch({ control, name: "courtCount" });
+  const when = useWatch({ control, name: "when" });
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -91,7 +100,7 @@ export function NewQueueModal({ onCreate, onClose }: Props) {
         aria-labelledby={`${ids}-title`}
         noValidate
         onSubmit={handleSubmit(onSubmit)}
-        className="w-full max-w-lg rounded-[28px] border border-sky-200 bg-white p-5 shadow-2xl sm:p-6"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-[28px] border border-sky-200 bg-white p-5 shadow-2xl sm:p-6"
       >
         <div className="flex items-center justify-between gap-4">
           <h2 id={`${ids}-title`} className="text-xl font-black tracking-tight text-slate-900 sm:text-2xl">
@@ -120,6 +129,52 @@ export function NewQueueModal({ onCreate, onClose }: Props) {
             </div>
             <FieldError id={`${ids}-name-error`} message={errors.name?.message} />
           </div>
+
+          {/* Owner's addition: plan a session ahead and let people sign up from a shared link. */}
+          <fieldset>
+            <legend className={labelClass}>When</legend>
+            <div className="grid h-11 grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+              {(
+                [
+                  { value: "now", label: "Start now" },
+                  { value: "later", label: "Plan for later" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setValue("when", option.value)}
+                  aria-pressed={when === option.value}
+                  className={`rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+                    when === option.value ? "bg-white text-blue-700 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {when === "later" && (
+              <div className="mt-3">
+                <label htmlFor={`${ids}-startsAt`} className={labelClass}>
+                  Date and time
+                </label>
+                <div className={inputBoxClass(Boolean(errors.startsAt))}>
+                  <input
+                    id={`${ids}-startsAt`}
+                    type="datetime-local"
+                    aria-invalid={errors.startsAt ? true : undefined}
+                    aria-describedby={`${ids}-startsAt-hint${errors.startsAt ? ` ${ids}-startsAt-error` : ""}`}
+                    className="w-full bg-transparent text-sm text-slate-800 outline-none"
+                    {...register("startsAt")}
+                  />
+                </div>
+                <p id={`${ids}-startsAt-hint`} className="mt-1.5 text-xs text-slate-500">
+                  You get a link to share in your group chat. People sign up and can cancel; no charges until you start.
+                </p>
+                <FieldError id={`${ids}-startsAt-error`} message={errors.startsAt?.message} />
+              </div>
+            )}
+          </fieldset>
 
           <div className="grid gap-5 sm:grid-cols-[1fr_auto]">
             <fieldset>

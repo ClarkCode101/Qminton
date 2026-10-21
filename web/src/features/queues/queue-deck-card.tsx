@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 
 import { QueueCardMenu } from "@/features/queues/queue-card-menu";
-import { formatCurrency, formatDateTime, formatRelativeDate, gameModeLabel, pluralizePlayer } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatRelativeDate, formatSessionDate, gameModeLabel, pluralizePlayer } from "@/lib/format";
 import { getQueuePath } from "@/lib/routes";
 import type { QueueSummary } from "@/services/queues";
 
@@ -25,12 +25,20 @@ function PaymentStatus({ totalBilled, totalCollected }: { totalBilled: number; t
 // One queue card on the landing page. The whole card opens the queue; the
 // "⋯" menu holds Delete.
 export function QueueDeckCard({ queue, onDelete }: Props) {
+  const isPlanned = queue.status === "planned";
   return (
     <article className="relative flex flex-col rounded-2xl border border-sky-100 bg-white p-4 shadow-sm transition-colors hover:border-sky-300 focus-within:border-sky-300 focus-within:ring-2 focus-within:ring-sky-100">
       <div className="flex items-center justify-between gap-2">
-        <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-700">
-          {gameModeLabel(queue.gameMode)}
-        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {isPlanned && (
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700">
+              Planned
+            </span>
+          )}
+          <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-700">
+            {gameModeLabel(queue.gameMode)}
+          </span>
+        </div>
         <QueueCardMenu queueName={queue.name} onDelete={onDelete} />
       </div>
 
@@ -44,21 +52,36 @@ export function QueueDeckCard({ queue, onDelete }: Props) {
         </Link>
       </h3>
 
-      <p className="mt-0.5 text-sm text-slate-500">
-        {pluralizePlayer(queue.playerCount)} ·{" "}
-        <time dateTime={queue.updatedAt} title={formatDateTime(queue.updatedAt)}>
-          {formatRelativeDate(queue.updatedAt)}
-        </time>
-      </p>
+      {isPlanned ? (
+        <>
+          <p className="mt-0.5 text-sm font-semibold text-slate-700">{queue.startsAt ? formatSessionDate(queue.startsAt) : "No date yet"}</p>
+          <div className="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
+            <div>
+              <p className="text-xs font-medium text-slate-500">Signed up</p>
+              <p className="text-base font-bold text-slate-900">{queue.signupCount} going</p>
+            </div>
+            <span className="text-sm text-slate-500">No charges yet</span>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="mt-0.5 text-sm text-slate-500">
+            {pluralizePlayer(queue.playerCount)} ·{" "}
+            <time dateTime={queue.updatedAt} title={formatDateTime(queue.updatedAt)}>
+              {formatRelativeDate(queue.updatedAt)}
+            </time>
+          </p>
 
-      <div className="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
-        <div>
-          <p className="text-xs font-medium text-slate-500">Collected</p>
-          {/* Money actually received (old bug #8 showed the total billed here). */}
-          <p className="text-base font-bold text-slate-900">{formatCurrency(queue.totalCollected)}</p>
-        </div>
-        <PaymentStatus totalBilled={queue.totalBilled} totalCollected={queue.totalCollected} />
-      </div>
+          <div className="mt-4 flex items-end justify-between gap-3 border-t border-slate-100 pt-3">
+            <div>
+              <p className="text-xs font-medium text-slate-500">Collected</p>
+              {/* Money actually received (old bug #8 showed the total billed here). */}
+              <p className="text-base font-bold text-slate-900">{formatCurrency(queue.totalCollected)}</p>
+            </div>
+            <PaymentStatus totalBilled={queue.totalBilled} totalCollected={queue.totalCollected} />
+          </div>
+        </>
+      )}
     </article>
   );
 }

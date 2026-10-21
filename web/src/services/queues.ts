@@ -2,6 +2,8 @@ import { supabase } from "@/services/supabase";
 import type { Enums, Tables } from "@/types/database";
 
 export type GameMode = Enums<"game_mode">;
+// "planned" = sign-ups before the games start; "live" = the queue is running.
+export type QueueStatus = Enums<"queue_status">;
 
 // One row of the landing page / navbar queue list.
 export interface QueueSummary {
@@ -17,6 +19,11 @@ export interface QueueSummary {
   totalCollected: number;
   createdAt: string;
   updatedAt: string;
+  status: QueueStatus;
+  // Planned date and time (ISO), null when not planned.
+  startsAt: string | null;
+  // People still "going" on the sign-up list.
+  signupCount: number;
 }
 
 export interface NewQueueInput {
@@ -43,6 +50,9 @@ function toQueueSummary(row: Tables<"queue_summaries">): QueueSummary {
     totalCollected: row.total_collected ?? 0,
     createdAt: row.created_at ?? "",
     updatedAt: row.updated_at ?? "",
+    status: row.status ?? "live",
+    startsAt: row.starts_at ?? null,
+    signupCount: row.signup_count ?? 0,
   };
 }
 

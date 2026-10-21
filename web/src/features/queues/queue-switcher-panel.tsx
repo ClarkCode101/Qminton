@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { MoreMenu } from "@/components/more-menu";
 import { sortQueues } from "@/features/queues/queue-list";
 import { useQueueSummaries } from "@/features/queues/use-queues";
-import { formatDateTime, formatRelativeDate } from "@/lib/format";
+import { formatDateTime, formatRelativeDate, formatSessionDate } from "@/lib/format";
 import type { QueueSummary } from "@/services/queues";
 
 interface Props {
@@ -78,13 +78,22 @@ export function QueueSwitcherPanel({ currentQueueId, onOpenQueue, onNewQueue, on
                         {queue.name}
                       </div>
                       <div className="mt-0.5 truncate text-xs text-slate-500">
-                        {queue.gameMode === "doubles" ? "Doubles" : "Singles"} · {queue.playerCount} players
-                        {queue.updatedAt && (
+                        {queue.status === "planned" ? (
                           <>
-                            {" · "}
-                            <time dateTime={queue.updatedAt} title={formatDateTime(queue.updatedAt)}>
-                              {formatRelativeDate(queue.updatedAt)}
-                            </time>
+                            <span className="font-semibold text-amber-700">Planned</span>
+                            {queue.startsAt && ` · ${formatSessionDate(queue.startsAt)}`} · {queue.signupCount} going
+                          </>
+                        ) : (
+                          <>
+                            {queue.gameMode === "doubles" ? "Doubles" : "Singles"} · {queue.playerCount} players
+                            {queue.updatedAt && (
+                              <>
+                                {" · "}
+                                <time dateTime={queue.updatedAt} title={formatDateTime(queue.updatedAt)}>
+                                  {formatRelativeDate(queue.updatedAt)}
+                                </time>
+                              </>
+                            )}
                           </>
                         )}
                       </div>

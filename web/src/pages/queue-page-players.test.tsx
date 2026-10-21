@@ -58,6 +58,8 @@ describe("queue page players", () => {
     vi.mocked(getQueue).mockResolvedValue({
       id: "q1",
       owner_id: "u1",
+      status: "live",
+      starts_at: null,
       name: "Saturday Session",
       game_mode: "doubles",
       court_fee: 50,

@@ -62,6 +62,25 @@ export function formatRelativeDate(iso: string, now: Date = new Date()): string 
   });
 }
 
+// When a planned session starts: "Sat, Oct 25 · 7:00 PM" (year added when not this year).
+export function formatSessionDate(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  const day = date.toLocaleDateString("en-PH", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
+  });
+  return `${day} · ${formatTime(iso)}`;
+}
+
+// ISO time -> the "YYYY-MM-DDTHH:mm" text a datetime-local input shows (local time).
+export function toDateTimeLocalValue(iso: string): string {
+  const date = new Date(iso);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function pluralizePlayer(count: number): string {
   return `${count} player${count !== 1 ? "s" : ""}`;
 }

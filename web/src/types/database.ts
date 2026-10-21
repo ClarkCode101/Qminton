@@ -369,6 +369,8 @@ export type Database = {
           match_no: number
           name: string
           owner_id: string
+          starts_at: string | null
+          status: Database["public"]["Enums"]["queue_status"]
           updated_at: string
           version: number
         }
@@ -382,6 +384,8 @@ export type Database = {
           match_no?: number
           name: string
           owner_id: string
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["queue_status"]
           updated_at?: string
           version?: number
         }
@@ -395,10 +399,77 @@ export type Database = {
           match_no?: number
           name?: string
           owner_id?: string
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["queue_status"]
           updated_at?: string
           version?: number
         }
         Relationships: []
+      }
+      signups: {
+        Row: {
+          cancel_code_hash: string
+          created_at: string
+          id: number
+          name: string
+          player_id: number | null
+          queue_id: string
+          skill: Database["public"]["Enums"]["skill_level"]
+          status: Database["public"]["Enums"]["signup_status"]
+          updated_at: string
+        }
+        Insert: {
+          cancel_code_hash: string
+          created_at?: string
+          id?: never
+          name: string
+          player_id?: number | null
+          queue_id: string
+          skill: Database["public"]["Enums"]["skill_level"]
+          status?: Database["public"]["Enums"]["signup_status"]
+          updated_at?: string
+        }
+        Update: {
+          cancel_code_hash?: string
+          created_at?: string
+          id?: never
+          name?: string
+          player_id?: number | null
+          queue_id?: string
+          skill?: Database["public"]["Enums"]["skill_level"]
+          status?: Database["public"]["Enums"]["signup_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signups_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "queue_summaries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signups_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "queues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signups_queue_id_player_id_fkey"
+            columns: ["queue_id", "player_id"]
+            isOneToOne: false
+            referencedRelation: "player_balances"
+            referencedColumns: ["queue_id", "player_id"]
+          },
+          {
+            foreignKeyName: "signups_queue_id_player_id_fkey"
+            columns: ["queue_id", "player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["queue_id", "id"]
+          },
+        ]
       }
     }
     Views: {
@@ -439,6 +510,9 @@ export type Database = {
           id: string | null
           name: string | null
           player_count: number | null
+          signup_count: number | null
+          starts_at: string | null
+          status: Database["public"]["Enums"]["queue_status"] | null
           total_billed: number | null
           total_collected: number | null
           updated_at: string | null
@@ -452,6 +526,9 @@ export type Database = {
           id?: string | null
           name?: string | null
           player_count?: never
+          signup_count?: never
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["queue_status"] | null
           total_billed?: never
           total_collected?: never
           updated_at?: string | null
@@ -465,6 +542,9 @@ export type Database = {
           id?: string | null
           name?: string | null
           player_count?: never
+          signup_count?: never
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["queue_status"] | null
           total_billed?: never
           total_collected?: never
           updated_at?: string | null
@@ -473,6 +553,44 @@ export type Database = {
       }
     }
     Functions: {
+      cancel_signup: { Args: { p_code: string; p_token: string }; Returns: Json }
+      get_signup: { Args: { p_my_codes?: string[]; p_token: string }; Returns: Json }
+      remove_signup: {
+        Args: { p_queue_id: string; p_signup_id: number }
+        Returns: undefined
+      }
+      set_queue_plan: {
+        Args: { p_queue_id: string; p_starts_at: string }
+        Returns: {
+          court_count: number
+          court_fee: number
+          created_at: string
+          game_mode: Database["public"]["Enums"]["game_mode"]
+          game_rate: number
+          id: string
+          match_no: number
+          name: string
+          owner_id: string
+          starts_at: string | null
+          status: Database["public"]["Enums"]["queue_status"]
+          updated_at: string
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "queues"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      sign_up: {
+        Args: { p_name: string; p_skill: Database["public"]["Enums"]["skill_level"]; p_token: string }
+        Returns: Json
+      }
+      start_session: {
+        Args: { p_arrived: number[]; p_queue_id: string }
+        Returns: Json
+      }
       add_adjustment: {
         Args: {
           p_amount: number
@@ -742,6 +860,8 @@ export type Database = {
           match_no: number
           name: string
           owner_id: string
+          starts_at: string | null
+          status: Database["public"]["Enums"]["queue_status"]
           updated_at: string
           version: number
         }
@@ -759,6 +879,8 @@ export type Database = {
       match_status: "queued" | "started" | "completed" | "cancelled"
       pair_kind: "pair" | "partner" | "opponent"
       payment_method: "cash" | "gcash" | "maya" | "bank" | "other"
+      queue_status: "planned" | "live"
+      signup_status: "going" | "cancelled" | "arrived" | "no_show"
       skill_level: "beginner" | "intermediate" | "advance"
     }
     CompositeTypes: {
@@ -892,6 +1014,8 @@ export const Constants = {
       match_status: ["queued", "started", "completed", "cancelled"],
       pair_kind: ["pair", "partner", "opponent"],
       payment_method: ["cash", "gcash", "maya", "bank", "other"],
+      queue_status: ["planned", "live"],
+      signup_status: ["going", "cancelled", "arrived", "no_show"],
       skill_level: ["beginner", "intermediate", "advance"],
     },
   },

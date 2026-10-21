@@ -14,8 +14,9 @@ export function useCheckInSettings(queueId: string) {
   return useQuery({ queryKey: checkInKeys.settings(queueId), queryFn: () => setCheckIn(queueId) });
 }
 
-// Open / close check-in, or make a new code.
-export function useUpdateCheckIn(queueId: string) {
+// Open / close check-in, or make a new code. The same switch opens sign-ups
+// while a session is planned, so the toast can say "Sign-ups".
+export function useUpdateCheckIn(queueId: string, what: "Check-in" | "Sign-ups" = "Check-in") {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
@@ -23,8 +24,8 @@ export function useUpdateCheckIn(queueId: string) {
     mutationFn: (change: { open?: boolean; newCode?: boolean }) => setCheckIn(queueId, change),
     onSuccess: (settings: CheckInSettings, change) => {
       queryClient.setQueryData(checkInKeys.settings(queueId), settings);
-      if (change.newCode) showToast("New check-in code made. Old QR codes no longer work.", "success");
-      else showToast(settings.is_open ? "Check-in is open" : "Check-in is closed", "success");
+      if (change.newCode) showToast("New link made. The old link and QR code no longer work.", "success");
+      else showToast(`${what} ${what === "Sign-ups" ? "are" : "is"} ${settings.is_open ? "open" : "closed"}`, "success");
     },
     onError: (error) => showToast(toUserMessage(error, "Failed to update check-in"), "error"),
   });

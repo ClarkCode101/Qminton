@@ -163,6 +163,47 @@ Owner chose: "clean + Courts" layout; close with ✕ / Cancel / Esc only; same f
   (`max-h-[max(4.5rem,min(18rem,calc(100dvh-14rem)))]`).
 - Tests: 160 passing.
 
+### ✅ More menu redesign (owner's request 2026-10-21; chose "grouped, no Landing"; committed)
+- No "MORE / Open another view…" header, no subtitles per row, plain icons (no circles), 44px rows.
+- Group **Public display**: "Open display" (new tab) + "Show QR code" (only when a queue is open).
+- Divider, then "Signed in as <email>" (from the session) + **Log out**.
+- "Landing" removed from More: the Queues popup has "See all queues →" (same page).
+- Tests: 161 passing. Screenshot checked (temporary preview, deleted).
+
+### 🧪 Planned sessions with sign-up, part 1 (owner's idea 2026-10-21; new feature; SQL applied via MCP as `planned_sessions`; committed, owner tests on Cloudflare)
+- Applied 2026-10-21 with the owner's OK. Verified: all new functions security definer; organizer ones
+  authenticated only; get_signup / sign_up / cancel_signup anon too (by design, like check-in);
+  `private.code_hash` not callable via the API; `signups` RLS on, anon no select; existing queue stayed
+  live. Generated types = hand-written ones (+2 FK relationship entries, added). Security advisor: only the
+  known intentional SECURITY DEFINER warnings (3 new anon ones: the public sign-up functions).
+Owner's idea: a queue can be planned before the games; a link / QR goes in the group chat; people sign up,
+see who is going and can cancel. Owner chose: **bill only at Start, only those who came**; **cancel only
+from the phone that signed up**; **part 1 first** (no slot limit / waitlist yet).
+- DB `20261029120000_planned_sessions.sql`: enum `queue_status` (planned/live) + `queues.status` (default
+  live, so every existing queue is unchanged) + `queues.starts_at`; table `signups` (name, skill, status
+  going/cancelled/arrived/no_show, `cancel_code_hash` = sha256 of the phone's secret code, `player_id` set at
+  start; RLS owner-select; anon nothing; unique going name per queue); `queue_summaries` + status, starts_at,
+  signup_count. RPCs: `set_queue_plan` (fresh queue → planned + opens sign-ups; or change the date),
+  `remove_signup`, `start_session(queue, arrived ids)` (arrived → players in sign-up order, court fee billed
+  then; rest → no_show; status live; check-in closed), public `get_signup(token, my codes)` (names only +
+  which of this phone's codes are still going), `sign_up` (returns the secret code once), `cancel_signup`.
+  `check_in` replaced (md5 of the live version = file checked first): refuses while planned.
+  The sign-up link **is** the check-in link (same token): sign-up while planned, check-in once live.
+- Dry-run `supabase/dry-runs/20261029_planned_sessions_dry_run.sql` via MCP: 37/37 OK (validation, dup names,
+  wrong / reused cancel code, anon can't read the table or call organizer RPCs, other owner can't, no
+  charges while planned, start bills only arrivals in sign-up order, no-shows, closed sign-ups, after start:
+  sign-up refused, walk-in check-in works, never-planned queues stay live).
+- Frontend: `services/signups.ts`, `lib/my-signups.ts` (this phone's codes in localStorage per link),
+  `features/signups/` (`use-signups.ts`, `planned-session.tsx` = Courts tab of a planned queue: date +
+  Change, share card (sign-ups open/close, link, Copy invite, Share…, QR, New link), live "Going" list with
+  Remove, `start-session-dialog.tsx` "Who came?" checklist). New Queue: **When: Start now | Plan for later**
+  + date/time (create, then `set_queue_plan`). Public `/join/:token` page: sign-up view (date, fees, form,
+  "Going from this phone" + Cancel my spot, "Sign up someone else", numbered Going list, live updates via
+  Realtime) or the old check-in view when live. Landing card: PLANNED badge, date, "N going"; Queues popup
+  row: "Planned · date · N going". `getCheckIn` removed (replaced by `getSignupPage`).
+- `database.ts` edited by hand (regenerate after applying). Tests: 170 passing. Screenshots checked
+  (organizer 1280, public page 390 phone frame; temporary preview deleted).
+
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.
 

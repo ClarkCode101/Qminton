@@ -25,6 +25,7 @@ import { AddPlayerModal } from "@/features/players/add-player-modal";
 import { PlayerStatsTable } from "@/features/players/player-stats-table";
 import { usePlayerActions, usePlayerBilledTotals, usePlayers } from "@/features/players/use-players";
 import { queueKeys, useQueue, useUpdateQueueSettings } from "@/features/queues/use-queues";
+import { PlannedSession } from "@/features/signups/planned-session";
 import { useQueueLiveUpdates } from "@/hooks/use-queue-live-updates";
 import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/services/errors";
@@ -240,7 +241,10 @@ export function QueuePage() {
 
       <Navbar queueId={queue.id} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {activeTab === "courts" && (
+      {/* Planned session: sign-ups first; the courts appear after "Start session". */}
+      {activeTab === "courts" && queue.status === "planned" && <PlannedSession queue={queue} />}
+
+      {activeTab === "courts" && queue.status === "live" && (
         <CourtsTab
           queue={queue}
           players={players}

@@ -5,6 +5,7 @@ import { HomePage } from "@/pages/home-page";
 import { LandingPage } from "@/pages/landing-page";
 import { QueuePage } from "@/pages/queue-page";
 import { createQueue, deleteQueue, getQueue, listQueues, updateQueueSettings, type QueueSummary } from "@/services/queues";
+import { setQueuePlan } from "@/services/signups";
 import { renderApp } from "@/test/render-app";
 import { ShowPath } from "@/test/show-path";
 
@@ -17,6 +18,12 @@ vi.mock("@/services/queues", () => ({
   updateQueueSettings: vi.fn(),
 }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
+vi.mock("@/services/signups", () => ({
+  setQueuePlan: vi.fn(),
+  listSignups: vi.fn(async () => []),
+  removeSignup: vi.fn(),
+  startSession: vi.fn(),
+}));
 vi.mock("@/services/billing", () => ({ listLedger: vi.fn(async () => []), listBillingPlayers: vi.fn(async () => []) }));
 vi.mock("@/services/matches", () => ({ listActiveMatches: vi.fn(async () => []), listMatchHistory: vi.fn(async () => ({ entries: [], total: 0 })) }));
 vi.mock("@/services/players", () => ({
@@ -42,6 +49,9 @@ function makeQueue(overrides: Partial<QueueSummary> = {}): QueueSummary {
     totalCollected: 300,
     createdAt: "2026-10-15T10:00:00Z",
     updatedAt: "2026-10-15T12:00:00Z",
+    status: "live",
+    startsAt: null,
+    signupCount: 0,
     ...overrides,
   };
 }
@@ -190,6 +200,32 @@ describe("queue pages", () => {
     expect(updateQueueSettings).toHaveBeenCalledWith("created-id", { courtCount: 4 });
   });
 
+  it("plans a session for later: asks for the date, then opens sign-ups", async () => {
+    listQueuesMock.mockResolvedValue([]);
+    createQueueMock.mockResolvedValue("created-id");
+    vi.mocked(setQueuePlan).mockReset().mockResolvedValue({} as never);
+    getQueueMock.mockResolvedValue(null);
+    renderApp(routes, "/landing");
+
+    fireEvent.click(await screen.findByRole("button", { name: "+ New Queue" }));
+    fireEvent.change(screen.getByLabelText("Queue name"), { target: { value: "Sat Open Play" } });
+    fireEvent.click(screen.getByRole("button", { name: "Plan for later" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create Queue" }));
+    });
+    // No date yet: the form says so and nothing is saved.
+    expect(screen.getByText("Please pick the date and time")).toBeInTheDocument();
+    expect(createQueueMock).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Date and time"), { target: { value: "2026-10-25T19:00" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Create Queue" }));
+    });
+
+    expect(createQueueMock).toHaveBeenCalledWith({ name: "Sat Open Play", gameMode: "doubles", courtFee: 0, gameRate: 0 });
+    expect(setQueuePlan).toHaveBeenCalledWith("created-id", new Date("2026-10-25T19:00").toISOString());
+  });
+
   it("stays open on a click outside; closes with Cancel", async () => {
     listQueuesMock.mockResolvedValue([]);
     renderApp(routes, "/landing");
@@ -256,6 +292,39 @@ describe("queue pages", () => {
     expect(screen.getByText('Delete "Old Night"? This cannot be undone.')).toBeInTheDocument();
   });
 
+  it("More menu: display group on a queue, only Log out on the landing page", async () => {
+    listQueuesMock.mockResolvedValue([makeQueue()]);
+    getQueueMock.mockResolvedValue({
+      id: "q1",
+      owner_id: "u1",
+      status: "live",
+      starts_at: null,
+      name: "Saturday Session",
+      game_mode: "doubles",
+      court_fee: 50,
+      game_rate: 20,
+      court_count: 2,
+      match_no: 0,
+      version: 1,
+      created_at: "2026-10-20T00:00:00Z",
+      updated_at: "2026-10-20T00:00:00Z",
+    });
+    renderApp(routes, "/queue/q1");
+
+    fireEvent.click(await screen.findByRole("button", { name: "More: open shortcuts" }));
+    const display = screen.getByRole("group", { name: "Public display" });
+    expect(within(display).getByRole("link", { name: /Open display/ })).toHaveAttribute("href", "/queue/q1/display");
+    expect(within(display).getByRole("button", { name: "Show QR code" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+    expect(screen.queryByText("Landing")).not.toBeInTheDocument();
+
+    cleanup();
+    renderApp(routes, "/landing");
+    fireEvent.click(await screen.findByRole("button", { name: "More: open shortcuts" }));
+    expect(screen.queryByRole("group", { name: "Public display" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+  });
+
   it("deletes a queue after confirming", async () => {
     listQueuesMock.mockResolvedValueOnce([makeQueue()]).mockResolvedValue([]);
     deleteQueueMock.mockResolvedValue();
@@ -283,6 +352,8 @@ describe("queue pages", () => {
     getQueueMock.mockResolvedValue({
       id: "q1",
       owner_id: "u1",
+      status: "live",
+      starts_at: null,
       name: "Saturday Session",
       game_mode: "singles",
       court_fee: 50,
