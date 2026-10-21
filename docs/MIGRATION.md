@@ -141,6 +141,44 @@ Upgraded `OpenJS.NodeJS.22` 22.11.0 → **22.23.2** via winget. `npm install`, `
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.
 
+### ✅ Auto-start next match (owner's request 2026-10-21; new feature; + SQL `fill_after_shrink` applied via MCP; committed; owner pushes)
+Owner chose: switch remembered **per device** (localStorage `qminton:auto-start:<queueId>`), and switching
+it on **fills the free courts right away**.
+- Courts toolbar: "Auto-start" switch pill (`role="switch"`, green when on) before Match Log.
+- When on, a successful Finish Game runs `useAutoFillCourts` (`use-matchmaking.ts`): per free court, read a
+  fresh snapshot, pick with the normal engine, `create_match` with the snapshot version (one retry on a
+  conflict). Stops when no court is free, when Up Next has waiting matches (those take the court first,
+  as before), or when the engine can't make a match (info toast "Auto-start: a court is free, but …").
+  - Follow-up (owner chose "always 1 in Up Next"): after the courts are full it also queues **one** match
+    in Up Next when Up Next is empty (Finish Game then starts it on the court, and Auto-start readies the
+    next). Not more than 1: more would lock players in early. Can't queue one (e.g. not enough rested
+    players) → silent; the "a court is free, but …" toast is only for a free court.
+- Follow-up (owner: an added court stayed empty): adding a court with Auto-start on also runs the fill
+  (after the database's own rule that a new court first takes a waiting Up Next match). With Auto-start
+  off it stays the old behavior: the new court waits for Start Next Match.
+- Follow-up (owner's screenshot: "Court is not occupied", screen stuck on "Picking teams..."): NOT a rules
+  bug. DB + Supabase logs showed the finished match was gone in the DB, but several browser requests reached
+  the server 20–47 s late (server times 2–22 ms; the picker takes 9 ms with the real data), so the screen
+  showed old data and a second Finish tap was refused. Fixes (owner chose both):
+  - `lib/fetch-with-timeout.ts`: every Supabase request gives up after 15 s (`global.fetch` in
+    `services/supabase.ts`); `toUserMessage` shows "The connection is slow…" for it. Safe for writes: a
+    retry re-reads and the version check refuses a stale one.
+  - `useFinishGame` takes the match off its court in the cache at once (on success and on a P0001 refusal),
+    so it can't be tapped twice while the reload is slow.
+  - Scenario test `supabase/dry-runs/20261021_court_resize_scenario.sql` (1 court, 12 players, +/- courts,
+    finish, billing): every old rule held, except step 9: court 1 free + court 2 playing, going to 1 court
+    left court 1 empty with the match waiting in Up Next (old OrcaRally did the same). Migration
+    `20261028120000_fill_after_shrink.sql` (only change: fill free courts on ANY court-count change, not only
+    more). Dry-run `supabase/dry-runs/20261028_fill_after_shrink_dry_run.sql` via MCP: step 9 now resumes #4
+    on court 1 with no new charge; all other steps identical. Live function = file before the change
+    (md5 checked). **Applied via MCP as `fill_after_shrink` (owner's OK 2026-10-21)**; verified: new rule
+    live, security definer, anon can't execute, authenticated can.
+  - Tests: 154 passing.
+- `getMatchmakingSnapshot` also returns `startedCount` (free courts = court_count − startedCount).
+- Only the device that pressed Finish (and has the switch on) starts the match, so two organizers can't
+  both start one; a stale count is refused by the version check anyway.
+- Tests: 148 passing (6 new in `queue-page-matches.test.tsx`).
+
 ### ✅ Courts tab UI review (owner asked for items 1–7, 2026-10-20; committed `bdd641a`)
 Checked with headless Edge screenshots (1280, 1600, and a 390px phone frame) using a temporary
 fake-data preview page (deleted afterwards). Same features and rules; layout/look only.

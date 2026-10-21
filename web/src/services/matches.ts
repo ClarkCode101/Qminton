@@ -24,11 +24,13 @@ export async function getMatchmakingSnapshot(queueId: string): Promise<{
   players: Player[];
   memory: PairMemory;
   queuedCount: number;
+  // Matches on a court right now (free courts = court_count - startedCount).
+  startedCount: number;
 }> {
   const { data: queue, error: queueError } = await supabase.from("queues").select("*").eq("id", queueId).single();
   if (queueError) throw queueError;
 
-  const [playersResult, memoryResult, queuedResult] = await Promise.all([
+  const [playersResult, memoryResult, queuedResult, startedResult] = await Promise.all([
     supabase
       .from("players")
       .select("*")
@@ -38,10 +40,12 @@ export async function getMatchmakingSnapshot(queueId: string): Promise<{
       .order("id", { ascending: true }),
     supabase.from("pair_memory").select("*").eq("queue_id", queueId),
     supabase.from("matches").select("id", { count: "exact", head: true }).eq("queue_id", queueId).eq("status", "queued"),
+    supabase.from("matches").select("id", { count: "exact", head: true }).eq("queue_id", queueId).eq("status", "started"),
   ]);
   if (playersResult.error) throw playersResult.error;
   if (memoryResult.error) throw memoryResult.error;
   if (queuedResult.error) throw queuedResult.error;
+  if (startedResult.error) throw startedResult.error;
 
   const memory: PairMemory = {
     pair: new Map(),
@@ -57,7 +61,13 @@ export async function getMatchmakingSnapshot(queueId: string): Promise<{
     if (row.kind === "partner" && row.times_together > 0) memory.partnerCount.set(key, row.times_together);
   }
 
-  return { queue, players: playersResult.data, memory, queuedCount: queuedResult.count ?? 0 };
+  return {
+    queue,
+    players: playersResult.data,
+    memory,
+    queuedCount: queuedResult.count ?? 0,
+    startedCount: startedResult.count ?? 0,
+  };
 }
 
 // Saves a picked match: starts it on a free court, or adds it to Up Next.

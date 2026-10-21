@@ -14,11 +14,11 @@ import {
   type MatchWithPlayers,
 } from "@/services/matches";
 import { listPlayers, type Player } from "@/services/players";
-import { getQueue, type Queue } from "@/services/queues";
+import { getQueue, updateQueueSettings, type Queue } from "@/services/queues";
 import { renderApp } from "@/test/render-app";
 
 // Never talk to the real Supabase in tests.
-vi.mock("@/services/queues", () => ({ getQueue: vi.fn(), listQueues: vi.fn(async () => []) }));
+vi.mock("@/services/queues", () => ({ getQueue: vi.fn(), listQueues: vi.fn(async () => []), updateQueueSettings: vi.fn() }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
 vi.mock("@/services/players", () => ({
   listPlayers: vi.fn(),
@@ -106,7 +106,7 @@ describe("starting and queueing matches", () => {
     vi.mocked(listActiveMatches).mockReset().mockResolvedValue([]);
     vi.mocked(getMatchmakingSnapshot)
       .mockReset()
-      .mockResolvedValue({ queue, players, memory: emptyPairMemory(), queuedCount: 0 });
+      .mockResolvedValue({ queue, players, memory: emptyPairMemory(), queuedCount: 0, startedCount: 0 });
     vi.mocked(createMatch).mockReset();
     vi.mocked(cancelQueuedMatch).mockReset();
     vi.mocked(finishGame).mockReset();
@@ -166,6 +166,29 @@ describe("starting and queueing matches", () => {
 
     expect(finishGame).toHaveBeenCalledWith("q1", 2, "m1");
     expect(await screen.findByText("Court is now available")).toBeInTheDocument();
+  });
+
+  it("takes a match off its court at once, even when the reload is slow", async () => {
+    const running: MatchWithPlayers = {
+      ...queuedMatch,
+      id: "m1",
+      status: "started",
+      queue_order: null,
+      court_no: 2,
+      match_no: 4,
+      started_at: new Date().toISOString(),
+    };
+    // First load shows the match; the reload after Finish never arrives.
+    vi.mocked(listActiveMatches).mockResolvedValueOnce([running]).mockReturnValue(new Promise(() => {}));
+    vi.mocked(finishGame).mockRejectedValue({ code: "P0001", message: "Court is not occupied" });
+    renderApp(routes, "/queue/q1");
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Finish Game" }));
+    });
+
+    expect(await screen.findByText("Court is not occupied")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Finish Game" })).not.toBeInTheDocument();
   });
 
   it("resets matchmaking, optionally including players on break", async () => {
@@ -247,5 +270,162 @@ describe("starting and queueing matches", () => {
 
     expect(cancelQueuedMatch).toHaveBeenCalledWith("q1", "m9");
     expect(await screen.findByText("Queued match cancelled")).toBeInTheDocument();
+  });
+});
+
+describe("auto-start", () => {
+  const running: MatchWithPlayers = {
+    ...queuedMatch,
+    id: "m1",
+    status: "started",
+    queue_order: null,
+    court_no: 2,
+    match_no: 4,
+    started_at: new Date().toISOString(),
+  };
+  const snapshot = (startedCount: number, queuedCount = 0) => ({
+    queue,
+    players,
+    memory: emptyPairMemory(),
+    queuedCount,
+    startedCount,
+  });
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.mocked(getQueue).mockReset().mockResolvedValue(queue);
+    vi.mocked(listPlayers).mockReset().mockResolvedValue(players);
+    vi.mocked(listActiveMatches).mockReset().mockResolvedValue([]);
+    vi.mocked(getMatchmakingSnapshot).mockReset();
+    // Unless a test says otherwise, a new match goes to Up Next (all courts busy).
+    vi.mocked(createMatch).mockReset().mockResolvedValue({ status: "queued", courtNo: null, matchNo: null, queueLength: 1 });
+    vi.mocked(finishGame).mockReset().mockResolvedValue("Court is now available");
+    vi.mocked(listMatchHistory).mockReset().mockResolvedValue({ entries: [], total: 0 });
+  });
+
+  it("is off by default and Finish Game then starts nothing", async () => {
+    vi.mocked(listActiveMatches).mockResolvedValue([running]);
+    renderApp(routes, "/queue/q1");
+
+    expect(await screen.findByRole("switch", { name: "Auto-start" })).toHaveAttribute("aria-checked", "false");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Finish Game" }));
+    });
+
+    expect(finishGame).toHaveBeenCalledWith("q1", 2, "m1");
+    expect(getMatchmakingSnapshot).not.toHaveBeenCalled();
+    expect(createMatch).not.toHaveBeenCalled();
+  });
+
+  it("switching it on fills the free courts, readies 1 Up Next match, and is remembered", async () => {
+    // 2 courts, none in use: 2 matches start, then a third goes to Up Next.
+    vi.mocked(getMatchmakingSnapshot).mockResolvedValueOnce(snapshot(0)).mockResolvedValueOnce(snapshot(1)).mockResolvedValue(snapshot(2));
+    vi.mocked(createMatch)
+      .mockResolvedValueOnce({ status: "assigned", courtNo: 1, matchNo: 1, queueLength: 0 })
+      .mockResolvedValueOnce({ status: "assigned", courtNo: 2, matchNo: 2, queueLength: 0 });
+    renderApp(routes, "/queue/q1");
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("switch", { name: "Auto-start" }));
+    });
+
+    expect(screen.getByRole("switch", { name: "Auto-start" })).toHaveAttribute("aria-checked", "true");
+    expect(window.localStorage.getItem("qminton:auto-start:q1")).toBe("on");
+    expect(createMatch).toHaveBeenCalledTimes(3);
+    expect(await screen.findByText("Auto-start: started 2 matches (Court 1, Court 2) + 1 ready in Up Next")).toBeInTheDocument();
+  });
+
+  it("starts a new match after Finish Game when it is on, then readies the next one", async () => {
+    window.localStorage.setItem("qminton:auto-start:q1", "on");
+    vi.mocked(listActiveMatches).mockResolvedValue([running]);
+    vi.mocked(getMatchmakingSnapshot).mockResolvedValueOnce(snapshot(1)).mockResolvedValue(snapshot(2));
+    vi.mocked(createMatch).mockResolvedValueOnce({ status: "assigned", courtNo: 2, matchNo: 5, queueLength: 0 });
+    renderApp(routes, "/queue/q1");
+
+    expect(await screen.findByRole("switch", { name: "Auto-start" })).toHaveAttribute("aria-checked", "true");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Finish Game" }));
+    });
+
+    expect(finishGame).toHaveBeenCalledWith("q1", 2, "m1");
+    expect(createMatch).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(createMatch).mock.calls[0][0].expectedVersion).toBe(7);
+    expect(await screen.findByText("Auto-start: started 1 match (Court 2) + 1 ready in Up Next")).toBeInTheDocument();
+  });
+
+  it("fills a newly added court when it is on", async () => {
+    window.localStorage.setItem("qminton:auto-start:q1", "on");
+    vi.mocked(listActiveMatches).mockResolvedValue([running]);
+    // After adding a 3rd court: 2 of 3 busy -> one new match, then all 3 busy -> 1 to Up Next.
+    vi.mocked(getMatchmakingSnapshot)
+      .mockResolvedValueOnce({ ...snapshot(2), queue: { ...queue, court_count: 3 } })
+      .mockResolvedValue({ ...snapshot(3), queue: { ...queue, court_count: 3 } });
+    vi.mocked(updateQueueSettings).mockReset().mockResolvedValue({ ...queue, court_count: 3 });
+    vi.mocked(createMatch).mockResolvedValueOnce({ status: "assigned", courtNo: 3, matchNo: 5, queueLength: 0 });
+    renderApp(routes, "/queue/q1");
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Increase court count" }));
+    });
+
+    expect(updateQueueSettings).toHaveBeenCalledWith("q1", { courtCount: 3 });
+    expect(createMatch).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText("Auto-start: started 1 match (Court 3) + 1 ready in Up Next")).toBeInTheDocument();
+  });
+
+  it("readies a new Up Next match when the waiting one took the finished court", async () => {
+    window.localStorage.setItem("qminton:auto-start:q1", "on");
+    vi.mocked(listActiveMatches).mockResolvedValue([running]);
+    vi.mocked(finishGame).mockResolvedValue("Court finished; next queued match started");
+    // Both courts busy again, Up Next now empty.
+    vi.mocked(getMatchmakingSnapshot).mockResolvedValue(snapshot(2));
+    renderApp(routes, "/queue/q1");
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Finish Game" }));
+    });
+
+    expect(createMatch).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("Match queued (#1)")).toBeInTheDocument();
+  });
+
+  it("stays quiet when courts are full and no Up Next match can be made", async () => {
+    window.localStorage.setItem("qminton:auto-start:q1", "on");
+    vi.mocked(listActiveMatches).mockResolvedValue([running]);
+    vi.mocked(getMatchmakingSnapshot).mockResolvedValue({ ...snapshot(2), players: players.slice(0, 3) });
+    renderApp(routes, "/queue/q1");
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Finish Game" }));
+    });
+
+    expect(createMatch).not.toHaveBeenCalled();
+    expect(screen.queryByText(/^Auto-start:/)).not.toBeInTheDocument();
+  });
+
+  it("leaves the court to Up Next when matches are waiting", async () => {
+    window.localStorage.setItem("qminton:auto-start:q1", "on");
+    vi.mocked(listActiveMatches).mockResolvedValue([running]);
+    vi.mocked(getMatchmakingSnapshot).mockResolvedValue(snapshot(1, 1));
+    renderApp(routes, "/queue/q1");
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Finish Game" }));
+    });
+
+    expect(getMatchmakingSnapshot).toHaveBeenCalledTimes(1);
+    expect(createMatch).not.toHaveBeenCalled();
+  });
+
+  it("says why when a court is free but no match can be made", async () => {
+    vi.mocked(getMatchmakingSnapshot).mockResolvedValue({ ...snapshot(0), players: players.slice(0, 3) });
+    renderApp(routes, "/queue/q1");
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("switch", { name: "Auto-start" }));
+    });
+
+    expect(createMatch).not.toHaveBeenCalled();
+    expect(await screen.findByText(/^Auto-start: a court is free, but /)).toBeInTheDocument();
   });
 });

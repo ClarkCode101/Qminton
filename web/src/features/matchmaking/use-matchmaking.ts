@@ -13,6 +13,8 @@ import {
   listActiveMatches,
   listMatchHistory,
   resetMatchmaking,
+  type CreateMatchResult,
+  type MatchWithPlayers,
 } from "@/services/matches";
 import type { Player } from "@/services/players";
 
@@ -108,18 +110,115 @@ export function useStartNextMatch(queueId: string) {
   });
 }
 
+interface AutoMade {
+  result: CreateMatchResult;
+  team1: EnginePlayer[];
+  team2: EnginePlayer[];
+  balanceText: string;
+}
+
+// Auto-start (owner's addition, 2026-10-21): fill every free court with a new
+// match, then keep ONE match ready in Up Next (owner chose "always 1"; more
+// would lock players in early and the picker would have fewer to choose from).
+// Same picker and rules as "Start Next Match". Each round reads a fresh
+// snapshot, and create_match refuses a stale one (version check). It stops
+// when Up Next already has a match (Finish Game starts it on the court), when
+// it has just queued one, or when the picker can't make a match. The reason is
+// returned only when a court sits free; not being able to queue ahead is normal.
+async function fillFreeCourts(queueId: string) {
+  const made: AutoMade[] = [];
+  let mode: "singles" | "doubles" = "doubles";
+  // At most 6 courts + 1 Up Next match.
+  for (let round = 0; round < 7; round += 1) {
+    for (let attempt = 0; ; attempt += 1) {
+      const snapshot = await getMatchmakingSnapshot(queueId);
+      mode = snapshot.queue.game_mode;
+      const freeCourts = snapshot.queue.court_count - snapshot.startedCount;
+      if (snapshot.queuedCount > 0) return { made, mode, stopReason: null };
+
+      const pick = pickMatch({
+        mode,
+        players: snapshot.players.map(toEnginePlayer),
+        currentMatchNo: snapshot.queue.match_no,
+        hasPendingMatches: false,
+        memory: snapshot.memory,
+        rng: Math.random,
+      });
+      if (!pick.ok) return { made, mode, stopReason: freeCourts > 0 ? pick.message : null };
+
+      try {
+        const result = await createMatch({
+          queueId,
+          expectedVersion: snapshot.queue.version,
+          team1: pick.team1.map((player) => player.id),
+          team2: pick.team2.map((player) => player.id),
+          balanceText: pick.balanceText,
+          explanation: pick.explanation,
+        });
+        made.push({ result, team1: pick.team1, team2: pick.team2, balanceText: pick.balanceText });
+        // All courts were busy, so this one went to Up Next: done.
+        if (result.status === "queued") return { made, mode, stopReason: null };
+        break;
+      } catch (error) {
+        const isConflict = typeof error === "object" && error !== null && "message" in error && error.message === VERSION_CONFLICT;
+        if (!isConflict || attempt >= 1) throw error;
+      }
+    }
+  }
+  return { made, mode, stopReason: null };
+}
+
+export function useAutoFillCourts(queueId: string) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  return useMutation({
+    mutationFn: () => fillFreeCourts(queueId),
+    onSuccess: ({ made, mode, stopReason }) => {
+      if (made.length === 1) {
+        const [match] = made;
+        showToast(`Auto-start\n${buildMatchToastMessage(mode, match.result, match.team1, match.team2, match.balanceText)}`, "success");
+      } else if (made.length > 1) {
+        const started = made.filter((match) => match.result.status === "assigned");
+        const courts = started.map((match) => `Court ${match.result.courtNo}`).join(", ");
+        const queued = made.length > started.length ? " + 1 ready in Up Next" : "";
+        showToast(`Auto-start: started ${started.length} ${started.length === 1 ? "match" : "matches"} (${courts})${queued}`, "success");
+      } else if (stopReason) {
+        // A court is free but no match could be made (e.g. not enough ready players).
+        showToast(`Auto-start: a court is free, but ${stopReason.charAt(0).toLowerCase()}${stopReason.slice(1)}`, "info");
+      }
+      if (made.length > 0) reloadQueue(queryClient, queueId);
+    },
+    onError: (error) => {
+      showToast(toUserMessage(error, "Auto-start could not start a match"), "error");
+      reloadQueue(queryClient, queueId);
+    },
+  });
+}
+
 // "Finish Game" on a court. Shows the old API message as the toast.
 export function useFinishGame(queueId: string) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
+  // Takes the finished match off its court on screen right away, so it can't
+  // be finished twice while the reload is still on its way (slow connection).
+  const dropFromCourts = (matchId: string) =>
+    queryClient.setQueryData<MatchWithPlayers[]>(matchKeys.active(queueId), (matches) =>
+      matches?.filter((match) => match.id !== matchId),
+    );
+
   return useMutation({
     mutationFn: ({ courtNo, matchId }: { courtNo: number; matchId: string }) => finishGame(queueId, courtNo, matchId),
-    onSuccess: (message) => {
+    onSuccess: (message, { matchId }) => {
+      dropFromCourts(matchId);
       showToast(message, "success");
       reloadQueue(queryClient, queueId);
     },
-    onError: (error) => {
+    onError: (error, { matchId }) => {
+      // "Court is not occupied" / "This court already changed": the match shown
+      // is no longer on that court, so stop showing it there.
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P0001") dropFromCourts(matchId);
       showToast(toUserMessage(error, "Failed to finish game"), "error");
       // The court may have changed under us: show the latest state.
       reloadQueue(queryClient, queueId);

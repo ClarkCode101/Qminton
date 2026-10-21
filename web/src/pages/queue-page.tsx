@@ -10,9 +10,11 @@ import { LoadError } from "@/components/load-error";
 import { BillingTab } from "@/features/billing/billing-tab";
 import { useBillingActions, useBillingPlayers, useLedger } from "@/features/billing/use-billing";
 import { CourtsTab } from "@/features/courts/courts-tab";
+import { readAutoStart, writeAutoStart } from "@/features/matchmaking/auto-start-setting";
 import { ResetMatchmakingDialog } from "@/features/matchmaking/reset-matchmaking-dialog";
 import {
   useActiveMatches,
+  useAutoFillCourts,
   useCancelQueuedMatch,
   useFinishGame,
   useMatchHistory,
@@ -47,6 +49,11 @@ export function QueuePage() {
   const startMatch = useStartNextMatch(queueId);
   const cancelQueued = useCancelQueuedMatch(queueId);
   const finishGame = useFinishGame(queueId);
+  const autoFill = useAutoFillCourts(queueId);
+  // Auto-start switch: remembered on this device for this queue. The value just
+  // set wins over the stored one (which is read again when switching queues).
+  const [autoStartSet, setAutoStartSet] = useState<{ queueId: string; on: boolean } | null>(null);
+  const autoStart = autoStartSet?.queueId === queueId ? autoStartSet.on : readAutoStart(queueId);
   const resetMatchmaking = useResetMatchmaking(queueId);
   const ledgerQuery = useLedger(queueId, { enabled: activeTab === "billing" });
   const billingPlayersQuery = useBillingPlayers(queueId, { enabled: activeTab === "billing" });
@@ -111,7 +118,24 @@ export function QueuePage() {
   const finishCourt = (courtNo: number) => {
     const match = matches.find((item) => item.status === "started" && item.court_no === courtNo);
     if (!match || finishGame.isPending) return;
-    finishGame.mutate({ courtNo, matchId: match.id });
+    finishGame.mutate(
+      { courtNo, matchId: match.id },
+      {
+        // Auto-start: fill any free court with a new match and keep 1 match
+        // ready in Up Next (a waiting Up Next match takes the court first).
+        onSuccess: () => {
+          if (autoStart) autoFill.mutate();
+        },
+      },
+    );
+  };
+
+  const toggleAutoStart = () => {
+    const on = !autoStart;
+    writeAutoStart(queueId, on);
+    setAutoStartSet({ queueId, on });
+    // Owner's choice: switching it on fills the free courts right away.
+    if (on) autoFill.mutate();
   };
 
   const confirmReset = async (includePlayersOnBreak: boolean) => {
@@ -138,6 +162,9 @@ export function QueuePage() {
     try {
       await updateSettings.mutateAsync({ courtCount });
       showToast("Courts updated", "success");
+      // A new court first takes a waiting Up Next match (database rule); with
+      // Auto-start on, any court still free gets a new match too.
+      if (autoStart && courtCount > queue.court_count) autoFill.mutate();
     } catch (error) {
       showToast(toUserMessage(error, "Failed to update courts"), "error");
     }
@@ -219,7 +246,9 @@ export function QueuePage() {
           players={players}
           matches={matches}
           matchLog={historyQuery.data ?? { entries: [], total: 0 }}
-          isStartingMatch={startMatch.isPending}
+          isStartingMatch={startMatch.isPending || autoFill.isPending}
+          autoStart={autoStart}
+          onToggleAutoStart={toggleAutoStart}
           isResetting={resetMatchmaking.isPending}
           onStartMatch={() => startMatch.mutate()}
           onFinishCourt={finishCourt}

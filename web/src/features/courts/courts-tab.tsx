@@ -22,6 +22,9 @@ interface Props {
   matchLog: { entries: MatchWithPlayers[]; total: number };
   isSavingCourtCount: boolean;
   isStartingMatch: boolean;
+  // Auto-start: free courts get a new match, and 1 match waits in Up Next.
+  autoStart: boolean;
+  onToggleAutoStart: () => void;
   isResetting: boolean;
   onStartMatch: () => void;
   onFinishCourt: (courtNo: number) => void;
@@ -66,6 +69,8 @@ export function CourtsTab({
   matchLog,
   isSavingCourtCount,
   isStartingMatch,
+  autoStart,
+  onToggleAutoStart,
   isResetting,
   onStartMatch,
   onFinishCourt,
@@ -248,6 +253,27 @@ export function CourtsTab({
                           Players ({players.length})
                         </button>
                       )}
+                      {/* Owner's addition: after Finish Game a new match starts on its own. */}
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={autoStart}
+                        onClick={onToggleAutoStart}
+                        title="When on, free courts get a new match and 1 match is kept ready in Up Next"
+                        className={`inline-flex min-h-8 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                          autoStart ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors ${autoStart ? "bg-emerald-500" : "bg-slate-300"}`}
+                        >
+                          <span
+                            className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-all ${autoStart ? "left-3.5" : "left-0.5"}`}
+                          />
+                        </span>
+                        Auto-start
+                      </button>
                       <button
                         type="button"
                         onClick={() => setOverlay("match-log")}

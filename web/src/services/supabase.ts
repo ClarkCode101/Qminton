@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 import type { Database } from "@/types/database";
 
 // The ONLY place the Supabase client is created. Every other file talks to
@@ -19,4 +20,7 @@ if (!supabaseUrl || !supabasePublishableKey) {
 }
 
 // <Database> = the generated types, so every query is type-checked against the real schema.
-export const supabase = createClient<Database>(supabaseUrl, supabasePublishableKey);
+// Requests give up after 15 s instead of hanging on a slow connection.
+export const supabase = createClient<Database>(supabaseUrl, supabasePublishableKey, {
+  global: { fetch: fetchWithTimeout() },
+});
