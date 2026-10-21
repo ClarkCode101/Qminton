@@ -204,6 +204,44 @@ from the phone that signed up**; **part 1 first** (no slot limit / waitlist yet)
 - `database.ts` edited by hand (regenerate after applying). Tests: 170 passing. Screenshots checked
   (organizer 1280, public page 390 phone frame; temporary preview deleted).
 
+### 🧪 Planned sessions follow-ups (owner, 2026-10-21; SQL applied; committed, owner pushes and tests)
+- Layout (owner's screenshot: the share card with QR went under the bottom navbar): from tablet width the
+  panel stops above the navbar like the Courts tab; the share card and the Going list scroll inside. QR
+  200 → 180. Checked at 1690×918 and 1280×720.
+- **Organizer adds people to the list** (owner's request): "+ Add people" on the Going list opens Add
+  Players in `target="signups"` mode (title "Add to the list", no QR tab, repeats "Already on the list").
+  DB `20261030120000_organizer_add_signups.sql`: `add_signups(queue, jsonb)` (organizer only, planned only,
+  same name / skill rules, repeats + blanks skipped, max 100 per call / 150 going, random cancel code nobody
+  keeps → only the organizer can remove them, no charges). Dry-run
+  `supabase/dry-runs/20261030_organizer_add_signups_dry_run.sql` via MCP: 14/14 OK. Applied via MCP as
+  `organizer_add_signups` (owner's OK 2026-10-21); verified: security definer, authenticated only, anon can't.
+- Tests: 171 passing.
+- **Rename queue** (owner's request): DB `20261031120000_rename_queue.sql` = `rename_queue(queue, name)`
+  (organizer only; trimmed, 1–60; no version bump when unchanged). Dry-run
+  `supabase/dry-runs/20261031_rename_queue_dry_run.sql` via MCP: 7/7 OK. Applied via MCP as `rename_queue`
+  (owner's OK 2026-10-21); verified: security definer, authenticated only, anon can't.
+  UI: "Rename queue" in the landing card ⋯, the Queues popup ⋯ and the Courts tab ⋯ menus
+  (`rename-queue-dialog.tsx`); planned session "Edit" = name + date and time in one dialog
+  (`features/signups/edit-plan-dialog.tsx`). Owner: editing must work from the landing card without opening
+  the queue → for a **planned** queue the card / Queues popup ⋯ item is "Edit name, date & time" (same
+  dialog; `EditQueueDialog` picks it by status), for a live queue "Rename queue". Tests: 173.
+- **Easier date and time** (owner: the browser's date-time box was hard): `components/date-time-picker.tsx`.
+  First try (day chips in 2 rows + a time dropdown) the owner didn't like; chose **"day strip + time chips"**:
+  a swipeable row of day cards for the next 14 days (weekday / big date / "Today", "Tmrw" or month) + "More
+  dates" (date box), time buttons for the usual session times (4, 5, 5:30, 6, 6:30, 7, 8 PM) + "Other…" (every
+  30 minutes, 5:00 AM–11:30 PM), and a summary line ("Fri, Oct 23 · 5:30 PM").
+  Third version (owner): **5 day cards + a 6th "More dates" card** (no sideways scroll; a later date shows in
+  that card) and a **digital clock** for the time: ▲▼ hour, ▲▼ minutes (5-minute steps, wraps), AM/PM, and
+  hour / minutes can be typed (checked when leaving the box); quick buttons 4, 5, 5:30, 6, 7, 8 PM under it.
+  `date-time-picker.test.tsx` (4 tests). Tests: 177.
+  Fourth tweak (owner): "More dates" opens the browser calendar right away (hidden date box under the card,
+  `showPicker()`), and the quick time buttons are gone: **digital clock only** (starts from 6:00 PM when
+  first used). Tests: 178.
+  Fifth tweak (owner: the browser calendar popped up outside the dialog; chose "under the day cards"): our own
+  month calendar (`MonthCalendar`) opens right under the day cards inside the dialog (‹ month ›, past days
+  disabled, can't go before this month), closes on pick; the digital clock is centered. Tests: 178. Used in New Queue and the Edit session dialog. Same value format as before
+  ("YYYY-MM-DDTHH:mm"), so the form rules didn't change. Tests: 172 passing. Screenshots checked (1280, 390).
+
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.
 

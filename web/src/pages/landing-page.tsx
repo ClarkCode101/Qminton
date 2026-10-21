@@ -6,8 +6,10 @@ import { QmintonLogo } from "@/components/qminton-logo";
 import { CreateQueueDialog, DeleteQueueDialog } from "@/features/queues/queue-dialogs";
 import { QueueDeckCard } from "@/features/queues/queue-deck-card";
 import { filterQueuesByName, QUEUE_SORT_OPTIONS, sortQueues, type QueueSortMode } from "@/features/queues/queue-list";
+import { EditQueueDialog } from "@/features/queues/rename-queue-dialog";
 import { useQueueSummaries } from "@/features/queues/use-queues";
 import { formatCurrency } from "@/lib/format";
+import type { QueueSummary } from "@/services/queues";
 
 // Small "label | value" pill, same style as the Courts header chips
 // (label bumped from 10px to 11px so it's easier to read).
@@ -32,6 +34,7 @@ export function LandingPage() {
   const { data: queues, isPending, isError, refetch } = useQueueSummaries();
   const [showNewQueue, setShowNewQueue] = useState(false);
   const [queuePendingDeletion, setQueuePendingDeletion] = useState<{ id: string; name: string } | null>(null);
+  const [queueToEdit, setQueueToEdit] = useState<QueueSummary | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortMode, setSortMode] = useState<QueueSortMode>("latest");
 
@@ -64,6 +67,8 @@ export function LandingPage() {
       {queuePendingDeletion && (
         <DeleteQueueDialog queue={queuePendingDeletion} onClose={() => setQueuePendingDeletion(null)} />
       )}
+
+      {queueToEdit && <EditQueueDialog queue={queueToEdit} onClose={() => setQueueToEdit(null)} />}
 
       <Navbar queueId={null} />
 
@@ -149,6 +154,7 @@ export function LandingPage() {
                     <QueueDeckCard
                       key={queue.id}
                       queue={queue}
+                      onEdit={() => setQueueToEdit(queue)}
                       onDelete={() => setQueuePendingDeletion({ id: queue.id, name: queue.name })}
                     />
                   ))}

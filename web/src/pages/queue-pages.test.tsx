@@ -4,7 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HomePage } from "@/pages/home-page";
 import { LandingPage } from "@/pages/landing-page";
 import { QueuePage } from "@/pages/queue-page";
-import { createQueue, deleteQueue, getQueue, listQueues, updateQueueSettings, type QueueSummary } from "@/services/queues";
+import {
+  createQueue,
+  deleteQueue,
+  getQueue,
+  listQueues,
+  renameQueue,
+  updateQueueSettings,
+  type QueueSummary,
+} from "@/services/queues";
+import { formatSessionDate } from "@/lib/format";
 import { setQueuePlan } from "@/services/signups";
 import { renderApp } from "@/test/render-app";
 import { ShowPath } from "@/test/show-path";
@@ -16,6 +25,7 @@ vi.mock("@/services/queues", () => ({
   createQueue: vi.fn(),
   deleteQueue: vi.fn(),
   updateQueueSettings: vi.fn(),
+  renameQueue: vi.fn(),
 }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
 vi.mock("@/services/signups", () => ({
@@ -217,13 +227,20 @@ describe("queue pages", () => {
     expect(screen.getByText("Please pick the date and time")).toBeInTheDocument();
     expect(createQueueMock).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByLabelText("Date and time"), { target: { value: "2026-10-25T19:00" } });
+    // Tap tomorrow, then ▲ on the clock's hour (it starts from 6:00 PM, so 7:00 PM).
+    const tomorrowAt7 = new Date();
+    tomorrowAt7.setDate(tomorrowAt7.getDate() + 1);
+    tomorrowAt7.setHours(19, 0, 0, 0);
+    const tomorrowLabel = tomorrowAt7.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" });
+    fireEvent.click(screen.getByRole("button", { name: tomorrowLabel }));
+    fireEvent.click(screen.getByRole("button", { name: "Hour up" }));
+    expect(screen.getByText(formatSessionDate(tomorrowAt7.toISOString()))).toBeInTheDocument();
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Create Queue" }));
     });
 
     expect(createQueueMock).toHaveBeenCalledWith({ name: "Sat Open Play", gameMode: "doubles", courtFee: 0, gameRate: 0 });
-    expect(setQueuePlan).toHaveBeenCalledWith("created-id", new Date("2026-10-25T19:00").toISOString());
+    expect(setQueuePlan).toHaveBeenCalledWith("created-id", tomorrowAt7.toISOString());
   });
 
   it("stays open on a click outside; closes with Cancel", async () => {
@@ -323,6 +340,51 @@ describe("queue pages", () => {
     fireEvent.click(await screen.findByRole("button", { name: "More: open shortcuts" }));
     expect(screen.queryByRole("group", { name: "Public display" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+  });
+
+  it("renames a queue from its card menu", async () => {
+    listQueuesMock.mockResolvedValue([makeQueue()]);
+    vi.mocked(renameQueue).mockReset().mockResolvedValue({} as never);
+    renderApp(routes, "/landing");
+
+    fireEvent.click(await screen.findByRole("button", { name: "More actions for Saturday Session" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename queue" }));
+    const dialog = screen.getByRole("dialog", { name: "Rename queue" });
+    fireEvent.change(within(dialog).getByLabelText("Queue name"), { target: { value: "   " } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(within(dialog).getByText("Please enter a queue name")).toBeInTheDocument();
+    expect(renameQueue).not.toHaveBeenCalled();
+
+    fireEvent.change(within(dialog).getByLabelText("Queue name"), { target: { value: " Sunday Smash " } });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    });
+
+    expect(renameQueue).toHaveBeenCalledWith("q1", "Sunday Smash");
+    expect(await screen.findByText("Queue renamed")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Rename queue" })).not.toBeInTheDocument();
+  });
+
+  it("edits a planned session's name, date and time from its card menu", async () => {
+    listQueuesMock.mockResolvedValue([makeQueue({ name: "Rosario", status: "planned", startsAt: "2026-10-21T09:30:00Z", signupCount: 10 })]);
+    vi.mocked(renameQueue).mockReset().mockResolvedValue({} as never);
+    renderApp(routes, "/landing");
+
+    expect(await screen.findByText("10 going")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Rosario" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit name, date & time" }));
+    const dialog = screen.getByRole("dialog", { name: "Edit session" });
+    expect(within(dialog).getByLabelText("Queue name")).toHaveValue("Rosario");
+    // The saved date and time are shown (and picked) when the dialog opens.
+    expect(within(dialog).getByText(formatSessionDate("2026-10-21T09:30:00Z"))).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText("Queue name"), { target: { value: "Rosario Court" } });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    });
+
+    expect(renameQueue).toHaveBeenCalledWith("q1", "Rosario Court");
+    // The date didn't change, so it isn't saved again.
+    expect(setQueuePlan).not.toHaveBeenCalled();
   });
 
   it("deletes a queue after confirming", async () => {

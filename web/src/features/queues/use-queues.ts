@@ -5,6 +5,7 @@ import {
   deleteQueue,
   getQueue,
   listQueues,
+  renameQueue,
   updateQueueSettings,
   type NewQueueInput,
   type QueueSettingsUpdate,
@@ -43,6 +44,19 @@ export function useUpdateQueueSettings(queueId: string) {
     onSuccess: (queue) => {
       if (queue) queryClient.setQueryData(queueKeys.detail(queueId), queue);
       void queryClient.invalidateQueries({ queryKey: queueKeys.detail(queueId) });
+      void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
+    },
+  });
+}
+
+// Rename any of the organizer's queues (from the landing card, the Queues
+// popup, the Courts tab or a planned session).
+export function useRenameQueue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ queueId, name }: { queueId: string; name: string }) => renameQueue(queueId, name),
+    onSuccess: (queue, { queueId }) => {
+      if (queue) queryClient.setQueryData(queueKeys.detail(queueId), queue);
       void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
     },
   });

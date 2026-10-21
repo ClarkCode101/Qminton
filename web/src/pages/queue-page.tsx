@@ -24,6 +24,7 @@ import {
 import { AddPlayerModal } from "@/features/players/add-player-modal";
 import { PlayerStatsTable } from "@/features/players/player-stats-table";
 import { usePlayerActions, usePlayerBilledTotals, usePlayers } from "@/features/players/use-players";
+import { RenameQueueDialog } from "@/features/queues/rename-queue-dialog";
 import { queueKeys, useQueue, useUpdateQueueSettings } from "@/features/queues/use-queues";
 import { PlannedSession } from "@/features/signups/planned-session";
 import { useQueueLiveUpdates } from "@/hooks/use-queue-live-updates";
@@ -71,6 +72,7 @@ export function QueuePage() {
     void queryClient.invalidateQueries({ queryKey: queueKeys.list, exact: true });
   });
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showRename, setShowRename] = useState(false);
 
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [playerToRemove, setPlayerToRemove] = useState<Player | null>(null);
@@ -231,6 +233,8 @@ export function QueuePage() {
         />
       )}
 
+      {showRename && <RenameQueueDialog queue={queue} onClose={() => setShowRename(false)} />}
+
       {showResetDialog && (
         <ResetMatchmakingDialog
           busy={resetMatchmaking.isPending}
@@ -257,6 +261,7 @@ export function QueuePage() {
           onStartMatch={() => startMatch.mutate()}
           onFinishCourt={finishCourt}
           onShowResetMatchmaking={() => setShowResetDialog(true)}
+          onRenameQueue={() => setShowRename(true)}
           onCancelQueuedMatch={setMatchToCancel}
           isSavingCourtCount={updateSettings.isPending}
           onChangeCourtCount={(courtCount) => void changeCourtCount(courtCount)}

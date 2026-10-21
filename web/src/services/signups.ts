@@ -98,6 +98,15 @@ export async function listSignups(queueId: string): Promise<Signup[]> {
   return data;
 }
 
+// Organizer: put people on the list themselves (e.g. they messaged instead of
+// using the link). Names already going are skipped. Only the organizer can
+// remove these spots (nobody holds their cancel code).
+export async function addSignups(queueId: string, people: { name: string; skill: SkillLevel }[]): Promise<{ added: number; skipped: number }> {
+  const { data, error } = await supabase.rpc("add_signups", { p_queue_id: queueId, p_people: people });
+  if (error) throw error;
+  return data as unknown as { added: number; skipped: number };
+}
+
 export async function removeSignup(queueId: string, signupId: number): Promise<void> {
   const { error } = await supabase.rpc("remove_signup", { p_queue_id: queueId, p_signup_id: signupId });
   if (error) throw error;

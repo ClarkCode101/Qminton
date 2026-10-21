@@ -7,6 +7,8 @@ import type { QueueSummary } from "@/services/queues";
 
 interface Props {
   queue: QueueSummary;
+  // Rename (live queue) or edit name, date and time (planned session).
+  onEdit: () => void;
   onDelete: () => void;
 }
 
@@ -24,7 +26,7 @@ function PaymentStatus({ totalBilled, totalCollected }: { totalBilled: number; t
 
 // One queue card on the landing page. The whole card opens the queue; the
 // "⋯" menu holds Delete.
-export function QueueDeckCard({ queue, onDelete }: Props) {
+export function QueueDeckCard({ queue, onEdit, onDelete }: Props) {
   const isPlanned = queue.status === "planned";
   return (
     <article className="relative flex flex-col rounded-2xl border border-sky-100 bg-white p-4 shadow-sm transition-colors hover:border-sky-300 focus-within:border-sky-300 focus-within:ring-2 focus-within:ring-sky-100">
@@ -39,7 +41,7 @@ export function QueueDeckCard({ queue, onDelete }: Props) {
             {gameModeLabel(queue.gameMode)}
           </span>
         </div>
-        <QueueCardMenu queueName={queue.name} onDelete={onDelete} />
+        <QueueCardMenu queueName={queue.name} isPlanned={isPlanned} onEdit={onEdit} onDelete={onDelete} />
       </div>
 
       <h3 className="mt-2 truncate text-lg font-black tracking-tight text-slate-900">

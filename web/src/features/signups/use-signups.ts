@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queueKeys } from "@/features/queues/use-queues";
 import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/services/errors";
-import { listSignups, removeSignup, setQueuePlan, startSession } from "@/services/signups";
+import type { SkillLevel } from "@/services/players";
+import { addSignups, listSignups, removeSignup, setQueuePlan, startSession } from "@/services/signups";
 
 // Under ["queues", id], so a sign-up from a phone (which bumps the queue
 // version) refreshes the organizer's list live.
@@ -18,6 +19,20 @@ function reloadQueue(queryClient: ReturnType<typeof useQueryClient>, queueId: st
 
 export function useSignups(queueId: string, options: { enabled?: boolean } = {}) {
   return useQuery({ queryKey: signupKeys.list(queueId), queryFn: () => listSignups(queueId), enabled: options.enabled });
+}
+
+export function useAddSignups(queueId: string) {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+  return useMutation({
+    mutationFn: (people: { name: string; skill: SkillLevel }[]) => addSignups(queueId, people),
+    onSuccess: ({ added, skipped }) => {
+      const message = `Added ${added} to the list`;
+      showToast(skipped > 0 ? `${message} (${skipped} already on it)` : message, "success");
+      reloadQueue(queryClient, queueId);
+    },
+    onError: (error) => showToast(toUserMessage(error, "Failed to add to the list"), "error"),
+  });
 }
 
 export function useRemoveSignup(queueId: string) {

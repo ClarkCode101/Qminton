@@ -107,6 +107,13 @@ export async function updateQueueSettings(queueId: string, settings: QueueSettin
   return data;
 }
 
+// Same name rules as creating a queue (trimmed, 1–60 characters).
+export async function renameQueue(queueId: string, name: string): Promise<Queue> {
+  const { data, error } = await supabase.rpc("rename_queue", { p_queue_id: queueId, p_name: name });
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteQueue(queueId: string): Promise<void> {
   const { error } = await supabase.rpc("delete_queue", { p_queue_id: queueId });
   if (error) throw error;

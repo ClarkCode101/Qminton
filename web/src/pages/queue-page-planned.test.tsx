@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueuePage } from "@/pages/queue-page";
 import { setCheckIn } from "@/services/check-in";
 import { getQueue, type Queue } from "@/services/queues";
-import { listSignups, removeSignup, setQueuePlan, startSession, type Signup } from "@/services/signups";
+import { addSignups, listSignups, removeSignup, setQueuePlan, startSession, type Signup } from "@/services/signups";
 import { renderApp } from "@/test/render-app";
 
 // Never talk to the real Supabase in tests.
@@ -21,6 +21,7 @@ vi.mock("@/services/matches", () => ({
 vi.mock("@/services/billing", () => ({ listLedger: vi.fn(async () => []), listBillingPlayers: vi.fn(async () => []) }));
 vi.mock("@/services/check-in", () => ({ setCheckIn: vi.fn() }));
 vi.mock("@/services/signups", () => ({
+  addSignups: vi.fn(),
   listSignups: vi.fn(),
   removeSignup: vi.fn(),
   setQueuePlan: vi.fn(),
@@ -92,6 +93,28 @@ describe("planned session (organizer)", () => {
 
     expect(removeSignup).toHaveBeenCalledWith("q1", 2);
     expect(await screen.findByText("Ben removed from the list")).toBeInTheDocument();
+  });
+
+  it("lets the organizer add people to the list (repeats flagged, no QR tab)", async () => {
+    vi.mocked(addSignups).mockResolvedValue({ added: 1, skipped: 0 });
+    renderApp(routes, "/queue/q1");
+
+    await screen.findByRole("list", { name: "Sign-up list" });
+    fireEvent.click(screen.getByRole("button", { name: "+ Add people" }));
+    const dialog = screen.getByRole("dialog", { name: "Add to the list" });
+    expect(within(dialog).queryByRole("tab", { name: "QR check-in" })).not.toBeInTheDocument();
+    // A pasted list: "ben" is already going (as Ben), so it is flagged and left out.
+    fireEvent.paste(within(dialog).getByLabelText("Player name"), {
+      clipboardData: { getData: () => "ben\nDina" },
+    });
+    expect(within(dialog).getByText("Already on the list: will be skipped")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Add 1 player" }));
+    });
+
+    expect(addSignups).toHaveBeenCalledWith("q1", [{ name: "Dina", skill: "beginner" }]);
+    expect(await screen.findByText("Added 1 to the list")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Add to the list" })).not.toBeInTheDocument();
   });
 
   it("starts the session with only the people who came", async () => {

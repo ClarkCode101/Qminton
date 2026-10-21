@@ -7,7 +7,9 @@ import { useSignOut } from "@/features/auth/use-sign-out";
 import { DisplayQrDialog } from "@/features/display/display-qr";
 import { CreateQueueDialog, DeleteQueueDialog } from "@/features/queues/queue-dialogs";
 import { QueueSwitcherPanel } from "@/features/queues/queue-switcher-panel";
+import { EditQueueDialog } from "@/features/queues/rename-queue-dialog";
 import { getQueueDisplayPath, getQueuePath } from "@/lib/routes";
+import type { QueueSummary } from "@/services/queues";
 
 interface Props {
   // null on the empty home workspace and on the landing page (no queue open).
@@ -54,6 +56,7 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
   const [showNewQueue, setShowNewQueue] = useState(false);
   const [showDisplayQr, setShowDisplayQr] = useState(false);
   const [queuePendingDeletion, setQueuePendingDeletion] = useState<{ id: string; name: string } | null>(null);
+  const [queueToEdit, setQueueToEdit] = useState<QueueSummary | null>(null);
   const navRef = useRef<HTMLDivElement | null>(null);
 
   const closePopups = () => {
@@ -105,6 +108,8 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
 
       {showDisplayQr && queueId && <DisplayQrDialog queueId={queueId} onClose={() => setShowDisplayQr(false)} />}
 
+      {queueToEdit && <EditQueueDialog queue={queueToEdit} onClose={() => setQueueToEdit(null)} />}
+
       {showNewQueue && (
         <CreateQueueDialog
           onClose={() => {
@@ -142,6 +147,7 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
                 currentQueueId={queueId}
                 onOpenQueue={openQueue}
                 onNewQueue={() => setShowNewQueue(true)}
+                onEditQueue={setQueueToEdit}
                 onDeleteQueue={setQueuePendingDeletion}
               />
             )}

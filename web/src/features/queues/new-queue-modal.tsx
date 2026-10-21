@@ -3,6 +3,7 @@ import { useEffect, useId } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
 import { CloseButton } from "@/components/close-button";
+import { DateTimePicker } from "@/components/date-time-picker";
 import {
   DEFAULT_COURT_COUNT,
   MAX_COURTS,
@@ -56,7 +57,7 @@ export function NewQueueModal({ onCreate, onClose }: Props) {
     handleSubmit,
     control,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isSubmitted },
   } = useForm<NewQueueFormInput, unknown, NewQueueFormOutput>({
     resolver: zodResolver(newQueueFormSchema),
     defaultValues: {
@@ -72,6 +73,7 @@ export function NewQueueModal({ onCreate, onClose }: Props) {
   const selectedMode = useWatch({ control, name: "gameMode" });
   const courtCount = useWatch({ control, name: "courtCount" });
   const when = useWatch({ control, name: "when" });
+  const startsAt = useWatch({ control, name: "startsAt" });
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -155,20 +157,13 @@ export function NewQueueModal({ onCreate, onClose }: Props) {
             </div>
             {when === "later" && (
               <div className="mt-3">
-                <label htmlFor={`${ids}-startsAt`} className={labelClass}>
-                  Date and time
-                </label>
-                <div className={inputBoxClass(Boolean(errors.startsAt))}>
-                  <input
-                    id={`${ids}-startsAt`}
-                    type="datetime-local"
-                    aria-invalid={errors.startsAt ? true : undefined}
-                    aria-describedby={`${ids}-startsAt-hint${errors.startsAt ? ` ${ids}-startsAt-error` : ""}`}
-                    className="w-full bg-transparent text-sm text-slate-800 outline-none"
-                    {...register("startsAt")}
-                  />
-                </div>
-                <p id={`${ids}-startsAt-hint`} className="mt-1.5 text-xs text-slate-500">
+                <DateTimePicker
+                  value={startsAt}
+                  invalid={Boolean(errors.startsAt)}
+                  describedBy={`${ids}-startsAt-hint${errors.startsAt ? ` ${ids}-startsAt-error` : ""}`}
+                  onChange={(value) => setValue("startsAt", value, { shouldValidate: isSubmitted })}
+                />
+                <p id={`${ids}-startsAt-hint`} className="mt-2 text-xs text-slate-500">
                   You get a link to share in your group chat. People sign up and can cancel; no charges until you start.
                 </p>
                 <FieldError id={`${ids}-startsAt-error`} message={errors.startsAt?.message} />

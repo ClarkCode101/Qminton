@@ -553,11 +553,39 @@ export type Database = {
       }
     }
     Functions: {
+      add_signups: {
+        Args: { p_people: Json; p_queue_id: string }
+        Returns: Json
+      }
       cancel_signup: { Args: { p_code: string; p_token: string }; Returns: Json }
       get_signup: { Args: { p_my_codes?: string[]; p_token: string }; Returns: Json }
       remove_signup: {
         Args: { p_queue_id: string; p_signup_id: number }
         Returns: undefined
+      }
+      rename_queue: {
+        Args: { p_name: string; p_queue_id: string }
+        Returns: {
+          court_count: number
+          court_fee: number
+          created_at: string
+          game_mode: Database["public"]["Enums"]["game_mode"]
+          game_rate: number
+          id: string
+          match_no: number
+          name: string
+          owner_id: string
+          starts_at: string | null
+          status: Database["public"]["Enums"]["queue_status"]
+          updated_at: string
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "queues"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_queue_plan: {
         Args: { p_queue_id: string; p_starts_at: string }

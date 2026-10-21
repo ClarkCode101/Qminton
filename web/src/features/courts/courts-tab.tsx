@@ -29,6 +29,7 @@ interface Props {
   onStartMatch: () => void;
   onFinishCourt: (courtNo: number) => void;
   onShowResetMatchmaking: () => void;
+  onRenameQueue: () => void;
   onCancelQueuedMatch: (match: MatchWithPlayers) => void;
   onChangeCourtCount: (courtCount: number) => void;
   onShowAddPlayer: () => void;
@@ -75,6 +76,7 @@ export function CourtsTab({
   onStartMatch,
   onFinishCourt,
   onShowResetMatchmaking,
+  onRenameQueue,
   onCancelQueuedMatch,
   onChangeCourtCount,
   onShowAddPlayer,
@@ -285,6 +287,7 @@ export function CourtsTab({
                       <MoreMenu
                         label="More court actions"
                         items={[
+                          { label: "Rename queue", onSelect: onRenameQueue },
                           {
                             label: isResetting ? "Resetting..." : "Reset Matchmaking",
                             tone: "danger",

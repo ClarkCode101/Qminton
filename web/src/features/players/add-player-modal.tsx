@@ -15,6 +15,9 @@ interface Props {
   queueId: string;
   queueName: string;
   onClose: () => void;
+  // "signups" = adding to a planned session's sign-up list: no QR tab (the
+  // share card already has the link) and repeats read "Already on the list".
+  target?: "queue" | "signups";
 }
 
 interface Entry {
@@ -28,7 +31,8 @@ interface Entry {
 // or too long are flagged and left out. A second tab shows the QR players can
 // scan to add themselves (owner's addition). Centered dialog on desktop,
 // bottom sheet on phones.
-export function AddPlayerModal({ existingNames, queueId, queueName, onAdd, onClose }: Props) {
+export function AddPlayerModal({ existingNames, queueId, queueName, onAdd, onClose, target = "queue" }: Props) {
+  const forSignups = target === "signups";
   const ids = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState("");
@@ -42,7 +46,7 @@ export function AddPlayerModal({ existingNames, queueId, queueName, onAdd, onClo
 
   const inQueue = new Set(existingNames.map((name) => name.toLowerCase()));
   const problem = (entry: Entry): string | null => {
-    if (inQueue.has(entry.name.toLowerCase())) return "Already in the queue";
+    if (inQueue.has(entry.name.toLowerCase())) return forSignups ? "Already on the list" : "Already in the queue";
     if (entry.name.length > MAX_PLAYER_NAME_LENGTH) return `Too long (max ${MAX_PLAYER_NAME_LENGTH} characters)`;
     return null;
   };
@@ -127,35 +131,41 @@ export function AddPlayerModal({ existingNames, queueId, queueName, onAdd, onClo
 
         <div className="flex items-start justify-between gap-3 px-5 pt-4 sm:px-6 sm:pt-5">
           <h2 id={`${ids}-title`} className="text-lg font-semibold text-slate-800">
-            Add Players
+            {forSignups ? "Add to the list" : "Add Players"}
           </h2>
           <CloseButton label="Close add players" onClick={onClose} disabled={isSaving} size="sm" />
         </div>
 
-        <div role="tablist" aria-label="How to add players" className="mx-5 mt-3 flex rounded-xl bg-slate-100 p-1 sm:mx-6">
-          {(
-            [
-              ["type", "Type names"],
-              ["qr", "QR check-in"],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              role="tab"
-              aria-selected={tab === value}
-              onClick={() => setTab(value)}
-              disabled={isSaving}
-              className={`inline-flex min-h-9 flex-1 items-center justify-center rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                tab === value ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {forSignups && (
+          <p className="mt-1 px-5 text-sm text-slate-500 sm:px-6">For people who messaged you instead of using the link. No charges until you start.</p>
+        )}
 
-        {tab === "qr" ? (
+        {!forSignups && (
+          <div role="tablist" aria-label="How to add players" className="mx-5 mt-3 flex rounded-xl bg-slate-100 p-1 sm:mx-6">
+            {(
+              [
+                ["type", "Type names"],
+                ["qr", "QR check-in"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+                disabled={isSaving}
+                className={`inline-flex min-h-9 flex-1 items-center justify-center rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+                  tab === value ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {tab === "qr" && !forSignups ? (
           <>
             <div className="mt-4 min-h-0 flex-1 overflow-y-auto border-t border-slate-100 bg-slate-50/80 px-5 py-4 sm:px-6">
               <CheckInPanel queueId={queueId} queueName={queueName} />

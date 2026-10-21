@@ -11,6 +11,8 @@ interface Props {
   currentQueueId: string | null;
   onOpenQueue: (queueId: string) => void;
   onNewQueue: () => void;
+  // Rename (live) or edit name, date and time (planned).
+  onEditQueue: (queue: QueueSummary) => void;
   onDeleteQueue: (queue: Pick<QueueSummary, "id" | "name">) => void;
 }
 
@@ -18,7 +20,7 @@ interface Props {
 // search or sort (latest first, the open queue on top; the landing page keeps
 // both for long lists), Delete moved into a "⋯" menu like the landing cards
 // (the old ✕ looked like "close"), and a link to all queues.
-export function QueueSwitcherPanel({ currentQueueId, onOpenQueue, onNewQueue, onDeleteQueue }: Props) {
+export function QueueSwitcherPanel({ currentQueueId, onOpenQueue, onNewQueue, onEditQueue, onDeleteQueue }: Props) {
   const { data: queues = [], isPending, isError, refetch } = useQueueSummaries();
 
   const sorted = sortQueues(queues, "latest");
@@ -108,7 +110,10 @@ export function QueueSwitcherPanel({ currentQueueId, onOpenQueue, onNewQueue, on
                   <MoreMenu
                     label={`More actions for ${queue.name}`}
                     placement="left"
-                    items={[{ label: "Delete queue", tone: "danger", onSelect: () => onDeleteQueue({ id: queue.id, name: queue.name }) }]}
+                    items={[
+                      { label: queue.status === "planned" ? "Edit name, date & time" : "Rename queue", onSelect: () => onEditQueue(queue) },
+                      { label: "Delete queue", tone: "danger", onSelect: () => onDeleteQueue({ id: queue.id, name: queue.name }) },
+                    ]}
                   />
                 </li>
               );
