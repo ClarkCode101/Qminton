@@ -19,12 +19,22 @@ describe("QR check-in panel", () => {
     renderApp([{ path: "/", element: <CheckInPanel queueId="q1" queueName="Saturday" /> }], "/");
   }
 
+  // The link isn't printed any more; "Copy link" puts it on the clipboard.
+  async function copiedLink() {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+    });
+    return writeText.mock.calls[0]?.[0];
+  }
+
   it("shows the QR for the check-in code (not the queue id) and opens check-in", async () => {
     show();
 
     expect(await screen.findByText("Check-in is closed")).toBeInTheDocument();
     expect(screen.getByTitle("QR code for player check-in")).toBeInTheDocument();
-    expect(screen.getByText(`${window.location.origin}/join/tok-1`)).toBeInTheDocument();
+    expect(await copiedLink()).toBe(`${window.location.origin}/join/tok-1`);
 
     vi.mocked(setCheckIn).mockResolvedValue({ ...closed, is_open: true });
     await act(async () => {
@@ -45,6 +55,7 @@ describe("QR check-in panel", () => {
     });
 
     expect(setCheckIn).toHaveBeenLastCalledWith("q1", { newCode: true });
-    expect(await screen.findByText(`${window.location.origin}/join/tok-2`)).toBeInTheDocument();
+    await screen.findByRole("button", { name: "New code" });
+    expect(await copiedLink()).toBe(`${window.location.origin}/join/tok-2`);
   });
 });

@@ -278,6 +278,10 @@ right) **without animation**, so both were thrown away and the screen stays as c
   Follow-up (owner): the picker is back **beside** the name box with the full words: from 640px
   [Name] [● Beginner | Intermediate | Advanced] [+] on one line; on phones [Name] [+] with the picker
   full-width under them (no room for the full words on one 390px line). Checked at 1280×800 and 390px.
+- **QR check-in tab** (owner: same look as the planned session's QR card): `check-in-panel.tsx` is one card,
+  "Scan to join" + status pill ("Check-in is open / closed"), the QR (200px, faded while closed) with one
+  caption line, and small links "Open/Close check-in" · "Copy link" · "New code". The printed link, the
+  explanation lines and the big buttons are gone. Test checks the link through Copy link. Tests: 179.
 
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.
