@@ -77,7 +77,9 @@ export function usePlayerActions(queueId: string) {
         );
       }
       refresh();
-      showToast(`${player.name} ${player.is_paused ? "resumed" : "paused"}`, "success");
+      // A late arrival from Start session: marking them Ready billed the court fee.
+      const arrived = player.is_paused && player.court_fee_pending;
+      showToast(arrived ? `${player.name} arrived. Court fee billed.` : `${player.name} ${player.is_paused ? "resumed" : "paused"}`, "success");
     },
     onError: onError("Failed to update player status"),
   });

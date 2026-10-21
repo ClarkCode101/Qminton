@@ -119,10 +119,12 @@ export async function setQueuePlan(queueId: string, startsAt: string): Promise<Q
   return data;
 }
 
-// Organizer: those who came become players (billed now); the queue goes live.
-export async function startSession(queueId: string, arrivedIds: number[]): Promise<{ added: number; noShow: number }> {
+// Organizer: those who came become players (billed now); everyone else still
+// going joins on break and is billed when first marked Ready (they're late,
+// owner 2026-10-21); the queue goes live.
+export async function startSession(queueId: string, arrivedIds: number[]): Promise<{ added: number; late: number }> {
   const { data, error } = await supabase.rpc("start_session", { p_queue_id: queueId, p_arrived: arrivedIds });
   if (error) throw error;
-  const raw = data as { added: number; no_show: number };
-  return { added: raw.added, noShow: raw.no_show };
+  const raw = data as { added: number; late?: number };
+  return { added: raw.added, late: raw.late ?? 0 };
 }

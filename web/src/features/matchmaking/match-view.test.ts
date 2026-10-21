@@ -23,6 +23,7 @@ function makePlayer(id: number, overrides: Partial<Player> = {}): Player {
     rest_games_needed: 0,
     last_match_no: 0,
     leave_code_hash: null,
+    court_fee_pending: false,
     created_at: "2026-10-22T00:00:00Z",
     removed_at: null,
     ...overrides,

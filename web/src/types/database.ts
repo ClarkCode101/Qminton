@@ -297,6 +297,7 @@ export type Database = {
       }
       players: {
         Row: {
+          court_fee_pending: boolean
           created_at: string
           games_played: number
           id: number
@@ -313,6 +314,7 @@ export type Database = {
           skill: Database["public"]["Enums"]["skill_level"]
         }
         Insert: {
+          court_fee_pending?: boolean
           created_at?: string
           games_played?: number
           id?: never
@@ -329,6 +331,7 @@ export type Database = {
           skill: Database["public"]["Enums"]["skill_level"]
         }
         Update: {
+          court_fee_pending?: boolean
           created_at?: string
           games_played?: number
           id?: never
@@ -656,6 +659,7 @@ export type Database = {
           p_skip_duplicates?: boolean
         }
         Returns: {
+          court_fee_pending: boolean
           created_at: string
           games_played: number
           id: number
@@ -854,6 +858,7 @@ export type Database = {
       set_player_paused: {
         Args: { p_paused: boolean; p_player_id: number; p_queue_id: string }
         Returns: {
+          court_fee_pending: boolean
           created_at: string
           games_played: number
           id: number

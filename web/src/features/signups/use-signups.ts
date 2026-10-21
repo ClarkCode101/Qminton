@@ -65,15 +65,16 @@ export function useChangePlanDate(queueId: string) {
   });
 }
 
-// "Start session": those who came become players (billed now); the queue goes live.
+// "Start session": those who came become players (billed now); the late ones
+// join on break (billed when marked Ready); the queue goes live.
 export function useStartSession(queueId: string) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   return useMutation({
     mutationFn: (arrivedIds: number[]) => startSession(queueId, arrivedIds),
-    onSuccess: ({ added, noShow }) => {
+    onSuccess: ({ added, late }) => {
       const players = `${added} player${added === 1 ? "" : "s"} added`;
-      showToast(`Session started: ${players}${noShow > 0 ? `, ${noShow} didn't come` : ""}`, "success");
+      showToast(`Session started: ${players}${late > 0 ? `, ${late} on break until they arrive` : ""}`, "success");
       reloadQueue(queryClient, queueId);
     },
     onError: (error) => {

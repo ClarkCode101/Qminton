@@ -348,6 +348,30 @@ right) **without animation**, so both were thrown away and the screen stays as c
 - **Sign-up page "Going" list numbering** (owner: looked broken with ~50 people): the two columns now read
   top to bottom (CSS `columns-2`: 1–25 left, 26–49 right) instead of across (a column read 1, 3, 5…);
   number column a bit wider for 3 digits. Checked at 390px with 49 names.
+- **"Who came?" (Start session) redesigned** (owner chose "name grid, tap who's missing"): with ~50 people
+  the one-column checkbox list showed ~10 names. `start-session-dialog.tsx` is now a wider dialog
+  (max-w-3xl) with a grid of name tiles (3 per row, 2 on phones; ~33 visible on a laptop): everyone
+  "here" (✓) at first, tap a tile → gray, dashed, crossed out, "Not here"; tap again to undo. Search box
+  (numbers keep the sign-up order), "47 here · 2 not here", "Mark all here" / "Clear all". Skill labels
+  dropped from this step. Tiles are buttons with `aria-pressed` and "Name: here / not here". Names wrap to
+  2 lines on phones. Same `start_session` call. Checked at 1280×800 and 390px.
+- **Late arrivals join on break** (owner's request 2026-10-21; SQL `20261102120000_late_arrivals.sql`,
+  **applied by the owner in the SQL Editor** (MCP `apply_migration` declined), so like steps 4/8/10 it is
+  NOT in Supabase's migration history. Verified read-only: column exists, the 3 public functions are the
+  new versions (security definer, authenticated only), the private helper is not callable by anyone;
+  security advisor unchanged (only the known intentional warnings)). Owner chose: billed only when they arrive; no separate "won't come" (remove them).
+  "Not here" in Who came? = joins the queue **on break** at the end of the line, `court_fee_pending`
+  (new column) instead of a charge. Billed ("Initial court fee", the fee at that moment) the first time
+  they leave the break: `set_player_paused(false)` or `reset_matchmaking(include players on break)`, via
+  `private.bill_pending_court_fee`. Removed before coming = nothing billed. Sign-ups all become "arrived"
+  (no more "no_show" at Start). `start_session` returns `{added, late}`. Live `start_session` /
+  `reset_matchmaking` matched the files except a stripped comment / CRLF line endings (checked).
+  Dry-run `supabase/dry-runs/20261102_late_arrivals_dry_run.sql`: MCP `execute_sql` was declined twice,
+  so the **owner ran it in the SQL Editor: 15/15 OK** (first run hit "permission denied" in the test's own
+  fake-setup UPDATEs as the logged-in user; those now run as admin). Frontend: dialog text "Tap anyone who
+  isn't here yet. They join on break and are charged when you mark them Ready."; toast "Session started:
+  9 players added, 2 on break until they arrive"; Mark Ready on a late one → "Ana arrived. Court fee
+  billed." `database.ts` + test fixtures got `court_fee_pending`. Tests: 188.
 
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.

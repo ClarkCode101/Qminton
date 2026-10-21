@@ -124,20 +124,28 @@ describe("planned session (organizer)", () => {
   });
 
   it("starts the session with only the people who came", async () => {
-    vi.mocked(startSession).mockResolvedValue({ added: 2, noShow: 1 });
+    vi.mocked(startSession).mockResolvedValue({ added: 2, late: 1 });
     renderApp(routes, "/queue/q1");
 
     // The button waits for the list to load.
     await screen.findByRole("list", { name: "Sign-up list" });
     fireEvent.click(screen.getByRole("button", { name: "Start session" }));
     const dialog = screen.getByRole("dialog", { name: "Who came?" });
-    // Everyone is ticked at first; Ben didn't come.
-    fireEvent.click(within(dialog).getByRole("checkbox", { name: /Ben/ }));
+    // Everyone is "here" at first; tap Ben, who didn't come.
+    const ben = within(dialog).getByRole("button", { name: "Ben: here" });
+    expect(ben).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(ben);
+    expect(within(dialog).getByRole("button", { name: "Ben: not here" })).toHaveAttribute("aria-pressed", "false");
+    expect(within(dialog).getByText("1 not here")).toBeInTheDocument();
+    // Search narrows the tiles (numbers keep the sign-up order).
+    fireEvent.change(within(dialog).getByLabelText("Search name"), { target: { value: "ana" } });
+    expect(within(dialog).getAllByRole("button", { name: /: (not )?here$/ })).toHaveLength(1);
+    fireEvent.change(within(dialog).getByLabelText("Search name"), { target: { value: "" } });
     await act(async () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "Start with 2 players" }));
     });
 
     expect(startSession).toHaveBeenCalledWith("q1", [1, 3]);
-    expect(await screen.findByText("Session started: 2 players added, 1 didn't come")).toBeInTheDocument();
+    expect(await screen.findByText("Session started: 2 players added, 1 on break until they arrive")).toBeInTheDocument();
   });
 });
