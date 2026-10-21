@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState, type ReactNode } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 
 import { LoadError } from "@/components/load-error";
 import { QmintonMark } from "@/components/qminton-logo";
@@ -228,7 +228,7 @@ function SignupForm({
       />
       <div>
         <p className="mb-2 text-sm font-semibold text-slate-700">{title ? "Their skill level" : "Your skill level"}</p>
-        <SkillSegmented value={skill} onChange={setSkill} label={title ? "Their skill level" : "Your skill level"} fill />
+        <SkillSegmented value={skill} onChange={setSkill} label={title ? "Their skill level" : "Your skill level"} fill="always" />
       </div>
       {join.isError && (
         <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
@@ -243,8 +243,10 @@ function SignupForm({
 }
 
 // ---------------------------------------------------------------------------
-// Live session: self check-in, with the courts under it (one QR for joining
-// and for watching; owner's request 2026-10-21).
+// Live session: self check-in, and a "View courts" button that shows who is
+// playing on this same page (one QR for joining and watching; owner's request
+// 2026-10-21). The courts view is "?view=courts", so the phone's back button
+// returns to the form. No "Organizer View" link here: players only.
 // ---------------------------------------------------------------------------
 function CheckInView({ token, info }: { token: string; info: SignupPage }) {
   const ids = useId();
@@ -254,16 +256,37 @@ function CheckInView({ token, info }: { token: string; info: SignupPage }) {
   // Everyone joined from this phone, shown in bold on the courts.
   const [joinedNames, setJoinedNames] = useState<string[]>([]);
   const join = useMutation({ mutationFn: () => checkIn(token, { name: name.trim(), skill: skill ?? "beginner" }) });
-  const courts = <LiveCourts queueId={info.queueId} highlight={joinedNames} />;
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const viewCourts = (
+    <button type="button" onClick={() => setSearchParams({ view: "courts" })} className={secondaryButtonClass}>
+      View courts
+    </button>
+  );
+
+  if (searchParams.get("view") === "courts") {
+    const backLabel = joined || !info.isOpen ? "Back" : "Join the queue";
+    return (
+      <Screen wide>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">{info.queueName}</p>
+        <LiveCourts queueId={info.queueId} highlight={joinedNames} />
+        <div className="mt-6 flex justify-center">
+          <button type="button" onClick={() => setSearchParams({})} className={`${primaryButtonClass} sm:max-w-xs`}>
+            {backLabel}
+          </button>
+        </div>
+      </Screen>
+    );
+  }
 
   if (joined) {
     return (
-      <Screen below={courts}>
+      <Screen below={viewCourts}>
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600">You're in</p>
         <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">Welcome, {joined.name}!</h1>
         <p className="mt-2 text-sm text-slate-600">
-          You're <span className="font-semibold text-slate-900">#{joined.position}</span> in line for {info.queueName}. Watch for
-          your name below.
+          You're <span className="font-semibold text-slate-900">#{joined.position}</span> in line for {info.queueName}. Tap View
+          courts to see when you play.
         </p>
         <button
           type="button"
@@ -283,7 +306,7 @@ function CheckInView({ token, info }: { token: string; info: SignupPage }) {
 
   if (!info.isOpen) {
     return (
-      <Screen below={courts}>
+      <Screen below={viewCourts}>
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">{info.queueName}</p>
         <h1 className="mt-1 text-xl font-black tracking-tight text-slate-900">Check-in is closed</h1>
         <p className="mt-2 text-sm text-slate-500">Ask the organizer if you still need to join.</p>
@@ -296,7 +319,7 @@ function CheckInView({ token, info }: { token: string; info: SignupPage }) {
   const canJoin = trimmed.length > 0 && !nameError && skill !== null && !join.isPending;
 
   return (
-    <Screen below={courts}>
+    <Screen below={viewCourts}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">Join the queue</p>
       <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">{info.queueName}</h1>
 
@@ -327,7 +350,7 @@ function CheckInView({ token, info }: { token: string; info: SignupPage }) {
 
         <div>
           <p className="mb-2 text-sm font-semibold text-slate-700">Your skill level</p>
-          <SkillSegmented value={skill} onChange={setSkill} label="Your skill level" fill />
+          <SkillSegmented value={skill} onChange={setSkill} label="Your skill level" fill="always" />
         </div>
 
         {join.isError && (
@@ -377,11 +400,13 @@ function NameField({
   );
 }
 
-// `below` = a second card under the main one (the live courts).
-function Screen({ children, below }: { children: ReactNode; below?: ReactNode }) {
+// `below` = shown under the card (the "View courts" button).
+// `wide` = the courts view: phone width on phones, then wider so the courts
+// sit 2 per row on a tablet and 3 on a laptop (the court cards follow their space).
+function Screen({ children, below, wide = false }: { children: ReactNode; below?: ReactNode; wide?: boolean }) {
   return (
     <div className="flex min-h-screen items-start justify-center bg-[radial-gradient(circle_at_top,#dbeafe,#f8fafc_35%,#eef6ff)] px-4 py-10 sm:items-center">
-      <div className="w-full max-w-sm">
+      <div className={`w-full ${wide ? "max-w-sm sm:max-w-2xl lg:max-w-5xl" : "max-w-sm"}`}>
         <div className="mb-6 flex justify-center">
           <QmintonMark size={48} />
         </div>

@@ -3,7 +3,6 @@ import { Link, useParams } from "react-router";
 import { FullScreenMessage } from "@/components/full-screen-message";
 import { LoadError } from "@/components/load-error";
 import { CourtsGrid } from "@/features/courts/courts-grid";
-import { DisplayQrCode } from "@/features/display/display-qr";
 import { buildDisplayCourts, useDisplay } from "@/features/display/use-display";
 import { formatTeamLabel } from "@/features/matchmaking/match-view";
 import { gameModeLabel } from "@/lib/format";
@@ -11,7 +10,6 @@ import { getQueuePath } from "@/lib/routes";
 
 // Public display (ported from the old app/queue/display/page.tsx). Anyone with
 // the link can watch; no login. Updates live (Realtime) instead of every 10 s.
-// New (owner's addition): a small QR code so people can open it on their phone.
 export function DisplayPage() {
   const { queueId = "" } = useParams();
   const displayQuery = useDisplay(queueId);
@@ -51,6 +49,7 @@ export function DisplayPage() {
             <p className="mt-1 text-sm text-slate-500 md:text-base">{gameModeLabel(display.gameMode)} session</p>
           </div>
           <div className="flex items-center gap-3">
+            {/* The corner QR was removed (owner): players scan the join QR instead. */}
             <div className="flex flex-wrap gap-1.5 sm:gap-2">
               <span className="rounded-full border border-sky-200 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
                 On court {display.courts.length}
@@ -64,11 +63,6 @@ export function DisplayPage() {
               >
                 Organizer View
               </Link>
-            </div>
-            {/* Hidden on phones: someone already on their phone doesn't need to scan. */}
-            <div className="hidden items-center gap-2.5 rounded-2xl border border-sky-200 bg-white/90 p-2 pr-3 shadow-sm sm:flex">
-              <DisplayQrCode queueId={queueId} size={84} />
-              <p className="max-w-24 text-xs font-medium leading-4 text-slate-600">Scan to follow on your phone</p>
             </div>
           </div>
         </div>

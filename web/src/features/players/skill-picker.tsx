@@ -19,15 +19,14 @@ export function SkillSegmented({
   onChange: (skill: SkillLevel) => void;
   // Read out by screen readers, e.g. "Skill level for Clark".
   label: string;
-  // Full width on phones (three equal parts), normal size from 640px.
-  fill?: boolean;
+  // true = full width on phones (three equal parts), normal size from 640px;
+  // "always" = full width on every screen (the narrow public join page).
+  fill?: boolean | "always";
 }) {
+  const groupWidth = fill === "always" ? "flex w-full" : fill ? "flex w-full sm:inline-flex sm:w-auto" : "inline-flex";
+  const optionWidth = fill === "always" ? "flex-1" : fill ? "flex-1 sm:flex-none" : "";
   return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className={`rounded-xl border border-slate-200 bg-slate-50 p-0.5 ${fill ? "flex w-full sm:inline-flex sm:w-auto" : "inline-flex"}`}
-    >
+    <div role="radiogroup" aria-label={label} className={`rounded-xl border border-slate-200 bg-slate-50 p-0.5 ${groupWidth}`}>
       {SKILLS.map((skill) => {
         const selected = value === skill.value;
         return (
@@ -37,9 +36,7 @@ export function SkillSegmented({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(skill.value)}
-            className={`inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[10px] px-2.5 text-xs font-semibold transition-colors cursor-pointer ${
-              fill ? "flex-1 sm:flex-none" : ""
-            } ${
+            className={`inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[10px] px-2.5 text-xs font-semibold transition-colors cursor-pointer ${optionWidth} ${
               selected ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-200" : "text-slate-500 hover:text-slate-800"
             }`}
           >

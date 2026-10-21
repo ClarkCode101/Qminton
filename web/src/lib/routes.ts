@@ -16,8 +16,3 @@ export function getCheckInPath(token: string): string {
 export function getCheckInUrl(token: string, origin: string = window.location.origin): string {
   return `${origin}${getCheckInPath(token)}`;
 }
-
-// The full display link (for the QR code): "https://<this site>/queue/<id>/display".
-export function getQueueDisplayUrl(queueId: string, origin: string = window.location.origin): string {
-  return `${origin}${getQueueDisplayPath(queueId)}`;
-}

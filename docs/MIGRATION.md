@@ -290,6 +290,23 @@ right) **without animation**, so both were thrown away and the screen stays as c
   No SQL: uses the public `get_display`; the page's one live listener reloads both (`useDisplayQuery` =
   the display data without its own Realtime channel). The Display link still can't add players.
   Tests: 180.
+  Follow-up (owner): the courts are **not shown right away**: a "View courts" button under the card opens
+  the courts view on the same page (`?view=courts`, so the phone's back button returns), with
+  "Join the queue" (or "Back" once joined / when check-in is closed) to go back to the form. No link to
+  the full display there (it has "Organizer View"; this page is for players). Skill picker on the join
+  page is full width on every screen (`SkillSegmented fill="always"`).
+  Follow-up (owner: show the court itself): the courts view uses the same court cards as the display
+  (`CourtsGrid` readOnly: diagram with Team 1 / Team 2, "Playing for" timer, "Available"), one per row on a
+  phone; names joined from this phone are underlined (`CourtsGrid highlight`). Up next stays a list.
+  Follow-up (owner: responsive): the courts view is wider on bigger screens (`Screen wide`: phone width,
+  `sm` 2xl, `lg` 5xl), so the court cards are 1 / 2 / 3 per row (their container query); Up next = small
+  cards in the same columns; "Join the queue" max 20rem wide from `sm`. The form view stays phone width.
+  Checked at 390, 820×1180 and 1280×800.
+- **Display QR removed** (owner, 2026-10-21): the organizer opens a big screen with "Open display", and
+  players scan the join QR (it has "View courts"). Gone: "Show QR code" in More (only "Open display" left in
+  Public display), the corner QR on the Display page, `display-qr.tsx` + its test, `getQueueDisplayUrl`.
+  The join QR was NOT put on the Display page on purpose: the display link is view-only and can be passed
+  around; only the join QR can add players. `qrcode.react` stays (join / sign-up QR). Tests: 178.
 
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.

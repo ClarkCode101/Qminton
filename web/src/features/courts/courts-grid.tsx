@@ -21,12 +21,14 @@ function CourtCard({
   readOnly,
   compact,
   dense,
+  highlight,
 }: {
   court: CourtView;
   onFinish?: (courtNo: number) => void;
   readOnly: boolean;
   compact?: boolean;
   dense?: boolean;
+  highlight?: Set<string>;
 }) {
   const isAvailable = court.status === "available";
   const elapsed = useElapsedTime(isAvailable ? null : court.startedAt);
@@ -105,7 +107,9 @@ function CourtCard({
                 {team.map((player) => (
                   <span
                     key={player.id}
-                    className={`${tightCompact ? "text-[13px]" : compact ? "text-sm" : "text-base"} max-w-full truncate font-black leading-tight text-white`}
+                    className={`${tightCompact ? "text-[13px]" : compact ? "text-sm" : "text-base"} max-w-full truncate font-black leading-tight text-white ${
+                      highlight?.has(player.name.toLowerCase()) ? "underline decoration-2 underline-offset-2" : ""
+                    }`}
                   >
                     {player.name}
                   </span>
@@ -150,13 +154,24 @@ interface Props {
   readOnly?: boolean;
   compact?: boolean;
   dense?: boolean;
+  // Lower-case names to underline (the join page: people joined from this phone).
+  highlight?: Set<string>;
 }
 
 // Ported from the old CourtsGrid: the Courts tab (with Finish Game), the
-// courts overlay, the public display and the empty home workspace (read-only).
-export function CourtsGrid({ courts, onFinish, readOnly = false, compact = false, dense = false }: Props) {
+// courts overlay, the public display, the join page's courts view and the
+// empty home workspace (read-only).
+export function CourtsGrid({ courts, onFinish, readOnly = false, compact = false, dense = false, highlight }: Props) {
   const cards = courts.map((court) => (
-    <CourtCard key={court.courtNo} court={court} onFinish={onFinish} readOnly={readOnly} compact={compact} dense={dense} />
+    <CourtCard
+      key={court.courtNo}
+      court={court}
+      onFinish={onFinish}
+      readOnly={readOnly}
+      compact={compact}
+      dense={dense}
+      highlight={highlight}
+    />
   ));
 
   if (compact) {

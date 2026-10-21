@@ -53,7 +53,7 @@ describe("public display", () => {
     vi.mocked(subscribeToQueueChanges).mockClear();
   });
 
-  it("shows the courts, the next matches and a QR code", async () => {
+  it("shows the courts and the next matches", async () => {
     renderApp(routes, "/queue/q1/display");
 
     expect(await screen.findByRole("heading", { name: "Saturday Session" })).toBeInTheDocument();
@@ -68,7 +68,6 @@ describe("public display", () => {
     expect(within(upNext).getByText("Eve + Fay")).toBeInTheDocument();
     expect(within(upNext).getByText("4 queued")).toBeInTheDocument();
 
-    expect(screen.getByTitle("QR code for the live display")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Organizer View" })).toHaveAttribute("href", "/queue/q1");
   });
 

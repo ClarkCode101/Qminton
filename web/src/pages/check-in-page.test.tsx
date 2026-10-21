@@ -75,18 +75,30 @@ describe("player self check-in page (live session)", () => {
     vi.mocked(checkIn).mockReset();
   });
 
-  it("shows the courts and Up Next under the form (one QR for joining and watching)", async () => {
+  it("shows the courts only after tapping View courts, and Join the queue goes back", async () => {
     renderApp(routes, "/join/abc");
 
+    // Not shown right away.
+    expect(await screen.findByLabelText("Your name")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Courts" })).not.toBeInTheDocument();
+    expect(getDisplay).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "View courts" }));
     const courts = await screen.findByRole("region", { name: "Courts" });
     expect(getDisplay).toHaveBeenCalledWith("q1");
     expect(within(courts).getByText("Court 1")).toBeInTheDocument();
     expect(within(courts).getByText("Ben")).toBeInTheDocument();
-    expect(within(courts).getByText("Free")).toBeInTheDocument(); // court 2
+    expect(within(courts).getByText("Court 2")).toBeInTheDocument();
+    expect(within(courts).getByText("Available")).toBeInTheDocument(); // court 2 = free
     expect(within(courts).getByText("#1")).toBeInTheDocument();
     expect(within(courts).getByText("+2 more waiting")).toBeInTheDocument();
-    expect(within(courts).getByRole("link", { name: "Open full display" })).toHaveAttribute("href", "/queue/q1/display");
-    expect(screen.getByLabelText("Your name")).toBeInTheDocument();
+    // Players only: no way to the organizer screen.
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Join the queue" }));
+    expect(await screen.findByLabelText("Your name")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Courts" })).not.toBeInTheDocument();
   });
 
   it("joins with a name and a skill, then shows the spot in line", async () => {
@@ -107,7 +119,9 @@ describe("player self check-in page (live session)", () => {
     expect(await screen.findByText("Welcome, Ana!")).toBeInTheDocument();
     expect(screen.getByText("#12")).toBeInTheDocument();
     // Their name is bold on the courts list (here: in Up Next).
+    fireEvent.click(screen.getByRole("button", { name: "View courts" }));
     const courts = await screen.findByRole("region", { name: "Courts" });
+    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(within(courts).getByText("Ana")).toHaveClass("font-bold");
     expect(within(courts).getByText("Faye")).not.toHaveClass("font-bold");
   });
@@ -135,6 +149,7 @@ describe("player self check-in page (live session)", () => {
     expect(await screen.findByText("Check-in is closed")).toBeInTheDocument();
     expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
     // The courts are still there to watch.
+    fireEvent.click(screen.getByRole("button", { name: "View courts" }));
     expect(await screen.findByRole("region", { name: "Courts" })).toBeInTheDocument();
   });
 
