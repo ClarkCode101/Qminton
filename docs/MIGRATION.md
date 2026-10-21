@@ -242,6 +242,43 @@ from the phone that signed up**; **part 1 first** (no slot limit / waitlist yet)
   disabled, can't go before this month), closes on pick; the digital clock is centered. Tests: 178. Used in New Queue and the Edit session dialog. Same value format as before
   ("YYYY-MM-DDTHH:mm"), so the form rules didn't change. Tests: 172 passing. Screenshots checked (1280, 390).
 
+### ↩️ Planned session redesign: tried and reverted (owner, 2026-10-21; nothing committed)
+Owner asked to make organizing "feel exciting". Tried, in order: (1) "courts filling up" (stat boxes:
+going / countdown / skill mix, a grid of the queue's courts filling with initials dots, name chips, big
+Copy invite); owner: overwhelming → (2) one animated scene (court + bench, players bouncing, a shuttle
+flying over the net). Owner then preferred **the first layout** (share card on the left, Going list on the
+right) **without animation**, so both were thrown away and the screen stays as committed in `d8f180b`.
+- Then (owner: "lively but not overwhelming, no animation"; chose 3 of 4 ideas, not the court-spots progress
+  bar): Going rows = **initials circle colored by skill** (light → dark blue: Beginner / Intermediate /
+  Advanced), skill only (no "Today, 2:12 PM"), **"New"** tag for the last hour, a small ✕ instead of "Remove",
+  a green **"Live"** dot instead of "Updates live as people sign up". Share card → **"Invite players"**: status
+  pill, one big **Copy invite**, Share…, the **QR always shown** (faded while closed, "Scan to sign up"), and
+  small "Close sign-ups · New link" links; the long link and the explanation are gone. `initials()` helper.
+  Tests: 179.
+- **Add Players / Add to the list, less text** (owner: people look at the controls, not at instructions):
+  no instruction lines (also not the "For people who messaged you…" line); name box "Name" (44px) with a
+  **+** button (aria "Add to list") instead of the "Add to list" text button; the skill picker without the
+  "Skill:" label; empty list = one muted line "Names you add show up here"; rows and "Set all" use a short
+  picker **Beg / Int / Adv** (`SkillSegmented short`, screen readers hear the full word) so each row fits one
+  line on phones; "Already in the queue · skipped". Same dialog for live queues and planned sessions.
+  Follow-up (owner: the picker under the name box looked unrelated; chose "in the name line" and "colored
+  dot"): **[Name] [Beg|Int|Adv] [+]** on one line; the signal-bars icon → a **colored dot** per skill (light /
+  mid / dark blue, `SkillDot`), the same colors as the initials circles in the Going list (`SKILL_DOT` /
+  `SKILL_AVATAR` in `player-status.ts`). Also used by the public sign-up / check-in page's skill picker.
+  Follow-up (owner: the dots were hard on the eyes; wanted a short bulk-add hint): only the **picked** option
+  shows its dot (one per row instead of three); one hint line under the name box: "Adding many? Paste a list
+  of names, one per line."
+  Follow-up (owner: with names already on the list it must not add at all): while any name in the list (or
+  in the box) has a problem (already in / on the list, or too long), **"Add N players" is disabled**; a bar
+  above the buttons says "2 names are already on the list." with **Remove them**. Rows just say "Already on
+  the list" (no "· skipped"). Behavior change vs before: it used to add the others and skip the repeats.
+  Follow-up (owner): skills spelled out again everywhere (the short "Beg / Int / Adv" picker removed), and the
+  picker for the name being typed is back **under** the name box so the full words fit: [Name] [+] /
+  [● Beginner | Intermediate | Advanced]. List rows: one line from 640px, picker under the name on phones.
+  Follow-up (owner): the picker is back **beside** the name box with the full words: from 640px
+  [Name] [● Beginner | Intermediate | Advanced] [+] on one line; on phones [Name] [+] with the picker
+  full-width under them (no room for the full words on one 390px line). Checked at 1280×800 and 390px.
+
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.
 

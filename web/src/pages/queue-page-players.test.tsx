@@ -152,8 +152,12 @@ describe("queue page players", () => {
       clipboardData: { getData: () => "1. Clark\n2. Diego\n3. juan\nclark" },
     });
 
-    // "juan" is already in the queue (as Juan): shown, but left out.
-    expect(within(dialog).getByText("Already in the queue: will be skipped")).toBeInTheDocument();
+    // "juan" is already in the queue (as Juan): flagged, and nothing can be added until it's removed.
+    expect(within(dialog).getByText("Already in the queue")).toBeInTheDocument();
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("1 name is already in the queue.");
+    expect(within(dialog).getByRole("button", { name: "Add 2 players" })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove it" }));
+    expect(within(dialog).queryByText("juan")).not.toBeInTheDocument();
     const everyone = within(dialog).getByRole("radiogroup", { name: "Skill level for everyone" });
     fireEvent.click(within(everyone).getByRole("radio", { name: "Advanced" }));
     // Remove Diego again with the ✕ on his row.

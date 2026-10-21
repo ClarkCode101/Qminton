@@ -1,15 +1,16 @@
 import { QRCodeSVG } from "qrcode.react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ConfirmActionModal } from "@/components/confirm-action-modal";
 import { useCheckInSettings, useUpdateCheckIn } from "@/features/check-in/use-check-in";
 import { AddPlayerModal } from "@/features/players/add-player-modal";
-import { SKILL_LABELS } from "@/features/players/player-status";
+// Initials circle colored by skill (same colors as the skill picker's dots).
+import { SKILL_AVATAR, SKILL_LABELS } from "@/features/players/player-status";
 import { EditPlanDialog } from "@/features/signups/edit-plan-dialog";
 import { StartSessionDialog } from "@/features/signups/start-session-dialog";
 import { useAddSignups, useRemoveSignup, useSignups, useStartSession } from "@/features/signups/use-signups";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, formatRelativeDate, formatSessionDate, gameModeLabel } from "@/lib/format";
+import { formatCurrency, formatSessionDate, gameModeLabel, initials } from "@/lib/format";
 import { getCheckInUrl } from "@/lib/routes";
 import type { Queue } from "@/services/queues";
 import type { Signup } from "@/services/signups";
@@ -17,8 +18,24 @@ import type { Signup } from "@/services/signups";
 const secondaryButtonClass =
   "inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 cursor-pointer disabled:cursor-wait disabled:opacity-60";
 
+// Signed up within this long: a "New" tag next to the name.
+const NEW_FOR_MS = 60 * 60_000;
+
+// The current time, updated every minute (for the "New" tags).
+function useNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
 // The Courts tab of a planned queue (owner's addition, 2026-10-21): share the
 // sign-up link, watch the list fill up, then "Start session" on the day.
+// Made livelier with less text (owner, same day; no animation): initials
+// circles colored by skill, "New" tags, a "Live" dot, a simpler share card with
+// a big "Copy invite" and the QR always shown.
 export function PlannedSession({ queue }: { queue: Queue }) {
   const signupsQuery = useSignups(queue.id);
   const removeSignup = useRemoveSignup(queue.id);
@@ -30,6 +47,7 @@ export function PlannedSession({ queue }: { queue: Queue }) {
   const [showAdd, setShowAdd] = useState(false);
   const addSignups = useAddSignups(queue.id);
   const [toRemove, setToRemove] = useState<Signup | null>(null);
+  const now = useNow();
   const signups = signupsQuery.data ?? [];
 
   return (
@@ -96,7 +114,7 @@ export function PlannedSession({ queue }: { queue: Queue }) {
               </div>
               <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-600">
                 <span className="font-semibold text-slate-800">{queue.starts_at ? formatSessionDate(queue.starts_at) : "No date yet"}</span>
-                <span aria-hidden="true" className="text-slate-300">
+                <span aria-hidden="true" className="hidden text-slate-300 sm:inline">
                   ·
                 </span>
                 <span>
@@ -119,11 +137,15 @@ export function PlannedSession({ queue }: { queue: Queue }) {
 
             <div className="min-w-0 rounded-3xl border border-slate-200 md:flex md:min-h-0 md:flex-col">
               <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-2.5">
                   <h2 className="text-base font-bold text-slate-900">
                     Going <span className="font-semibold text-slate-500">({signups.length})</span>
                   </h2>
-                  <p className="text-xs text-slate-500">Updates live as people sign up</p>
+                  {/* The list updates by itself as people sign up. */}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                    Live
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -147,22 +169,35 @@ export function PlannedSession({ queue }: { queue: Queue }) {
                 <p className="px-4 py-10 text-center text-sm text-slate-500">No one yet. Share the link in your group chat, or add people yourself.</p>
               ) : (
                 <ul className="divide-y divide-slate-100 md:min-h-0 md:flex-1 md:overflow-y-auto" aria-label="Sign-up list">
-                  {signups.map((signup, index) => (
+                  {signups.map((signup) => (
                     <li key={signup.id} className="flex min-h-14 items-center gap-3 px-4 py-2">
-                      <span className="w-6 shrink-0 text-right text-xs tabular-nums text-slate-400">{index + 1}</span>
+                      <span
+                        aria-hidden="true"
+                        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${SKILL_AVATAR[signup.skill]}`}
+                      >
+                        {initials(signup.name)}
+                      </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-slate-800">{signup.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {SKILL_LABELS[signup.skill]} · {formatRelativeDate(signup.created_at)}
+                        <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                          <span className="truncate">{signup.name}</span>
+                          {now - new Date(signup.created_at).getTime() < NEW_FOR_MS && (
+                            <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                              New
+                            </span>
+                          )}
                         </p>
+                        <p className="text-xs text-slate-500">{SKILL_LABELS[signup.skill]}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setToRemove(signup)}
                         aria-label={`Remove ${signup.name}`}
-                        className="inline-flex min-h-9 items-center rounded-lg px-3 text-xs font-semibold text-slate-500 transition-colors hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
+                        title="Remove"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
                       >
-                        Remove
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
                       </button>
                     </li>
                   ))}
@@ -180,7 +215,6 @@ function ShareCard({ queue }: { queue: Queue }) {
   const settingsQuery = useCheckInSettings(queue.id);
   const update = useUpdateCheckIn(queue.id, "Sign-ups");
   const { showToast } = useToast();
-  const [showQr, setShowQr] = useState(false);
   const [confirmNewCode, setConfirmNewCode] = useState(false);
   const settings = settingsQuery.data;
 
@@ -217,56 +251,64 @@ function ShareCard({ queue }: { queue: Queue }) {
   };
 
   return (
-    <div className="rounded-3xl border border-slate-200 p-4 md:min-h-0 md:overflow-y-auto">
-      <h2 className="text-base font-bold text-slate-900">Share with your group</h2>
-      <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3 py-2.5">
-        <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <span className={`h-2.5 w-2.5 rounded-full ${settings.is_open ? "bg-emerald-500" : "bg-slate-400"}`} aria-hidden="true" />
+    <div className="flex flex-col rounded-3xl border border-slate-200 p-4 md:min-h-0 md:overflow-y-auto">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-bold text-slate-900">Invite players</h2>
+        <span
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+            settings.is_open ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+          }`}
+        >
+          <span className={`h-2 w-2 rounded-full ${settings.is_open ? "bg-emerald-500" : "bg-slate-400"}`} aria-hidden="true" />
           {settings.is_open ? "Sign-ups open" : "Sign-ups closed"}
         </span>
+      </div>
+
+      {/* The invite (name, date and link) is what people need: one big button. */}
+      <button
+        type="button"
+        onClick={() => void copyInvite()}
+        className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sky-700 cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z" />
+        </svg>
+        Copy invite
+      </button>
+      {typeof navigator.share === "function" && (
+        <button type="button" onClick={() => void share()} className={`mt-2 w-full ${secondaryButtonClass}`}>
+          Share…
+        </button>
+      )}
+
+      {/* Always shown, for people next to you to scan. Faded while sign-ups are closed. */}
+      <div className="mt-4 flex flex-col items-center">
+        <div className="rounded-2xl border border-sky-100 bg-white p-2">
+          <QRCodeSVG
+            value={url}
+            size={148}
+            level="M"
+            marginSize={1}
+            title="QR code for sign-up"
+            className={`h-auto max-w-full transition-opacity ${settings.is_open ? "" : "opacity-25"}`}
+          />
+        </div>
+        <p className="mt-1.5 text-xs text-slate-500">Scan to sign up</p>
+      </div>
+
+      <div className="mt-auto flex items-center justify-between gap-2 pt-4 text-xs">
         <button
           type="button"
           onClick={() => update.mutate({ open: !settings.is_open })}
           disabled={update.isPending}
-          className="text-sm font-semibold text-blue-600 hover:underline disabled:opacity-60 cursor-pointer"
+          className="font-semibold text-blue-600 hover:underline disabled:opacity-60 cursor-pointer"
         >
-          {settings.is_open ? "Close" : "Open"}
+          {settings.is_open ? "Close sign-ups" : "Open sign-ups"}
         </button>
-      </div>
-
-      <p className="mt-3 break-all rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600">{url}</p>
-
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => void copyInvite()} className={secondaryButtonClass}>
-          Copy invite
-        </button>
-        {typeof navigator.share === "function" ? (
-          <button type="button" onClick={() => void share()} className={secondaryButtonClass}>
-            Share…
-          </button>
-        ) : (
-          <button type="button" onClick={() => setShowQr((current) => !current)} className={secondaryButtonClass} aria-expanded={showQr}>
-            {showQr ? "Hide QR" : "Show QR"}
-          </button>
-        )}
-      </div>
-      {typeof navigator.share === "function" && (
-        <button type="button" onClick={() => setShowQr((current) => !current)} className="mt-2 text-sm font-semibold text-blue-600 hover:underline cursor-pointer" aria-expanded={showQr}>
-          {showQr ? "Hide QR code" : "Show QR code"}
-        </button>
-      )}
-      {showQr && (
-        <div className="mt-3 flex justify-center rounded-2xl border border-sky-100 p-3">
-          <QRCodeSVG value={url} size={180} level="M" marginSize={2} title="QR code for sign-up" className="h-auto max-w-full" />
-        </div>
-      )}
-
-      <p className="mt-3 text-xs leading-5 text-slate-500">
-        People see the date, the fees and who is going, and can cancel their own spot. No charges until you start the session.{" "}
-        <button type="button" onClick={() => setConfirmNewCode(true)} className="font-semibold text-slate-600 underline-offset-2 hover:underline cursor-pointer">
+        <button type="button" onClick={() => setConfirmNewCode(true)} className="font-semibold text-slate-500 hover:underline cursor-pointer">
           New link
         </button>
-      </p>
+      </div>
 
       {confirmNewCode && (
         <ConfirmActionModal

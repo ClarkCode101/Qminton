@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCurrency, formatRelativeDate, formatTime, pluralizePlayer } from "@/lib/format";
+import { formatCurrency, formatRelativeDate, formatTime, initials, pluralizePlayer } from "@/lib/format";
 
 // Local times, so the test works in any timezone. "now" = Mon Oct 19 2026, 6:00 PM.
 const now = new Date(2026, 9, 19, 18, 0);
 const at = (...parts: [number, number, number, number, number]) => new Date(...parts).toISOString();
+
+describe("initials", () => {
+  it("takes the first letters of up to two words", () => {
+    expect(initials("Ma. Clara Reyes")).toBe("MC");
+    expect(initials("  ben ")).toBe("B");
+  });
+});
 
 describe("formatRelativeDate", () => {
   it("uses minutes for the last hour", () => {

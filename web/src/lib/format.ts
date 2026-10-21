@@ -74,6 +74,16 @@ export function formatSessionDate(iso: string, now: Date = new Date()): string {
   return `${day} · ${formatTime(iso)}`;
 }
 
+// "Ma. Clara Reyes" -> "MC", "Ben" -> "B".
+export function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+}
+
 // ISO time -> the "YYYY-MM-DDTHH:mm" text a datetime-local input shows (local time).
 export function toDateTimeLocalValue(iso: string): string {
   const date = new Date(iso);

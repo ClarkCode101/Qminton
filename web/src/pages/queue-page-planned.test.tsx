@@ -77,8 +77,12 @@ describe("planned session (organizer)", () => {
     const list = await screen.findByRole("list", { name: "Sign-up list" });
     expect(within(list).getAllByRole("listitem")).toHaveLength(3);
     expect(screen.getByRole("heading", { name: "Going (3)" })).toBeInTheDocument();
-    expect(await screen.findByText(/\/join\/tok-123$/)).toBeInTheDocument();
-    expect(screen.getByText("Sign-ups open")).toBeInTheDocument();
+    expect(await screen.findByText("Sign-ups open")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy invite" })).toBeInTheDocument();
+    expect(screen.getByTitle("QR code for sign-up")).toBeInTheDocument();
+    // Skill shows without the time, and Remove is a small ✕.
+    expect(within(list).getAllByText("Intermediate")).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "Remove Ben" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Start Next Match|Need/ })).not.toBeInTheDocument();
   });
 
@@ -103,11 +107,13 @@ describe("planned session (organizer)", () => {
     fireEvent.click(screen.getByRole("button", { name: "+ Add people" }));
     const dialog = screen.getByRole("dialog", { name: "Add to the list" });
     expect(within(dialog).queryByRole("tab", { name: "QR check-in" })).not.toBeInTheDocument();
-    // A pasted list: "ben" is already going (as Ben), so it is flagged and left out.
+    // A pasted list: "ben" is already going (as Ben), so it is flagged and blocks adding until removed.
     fireEvent.paste(within(dialog).getByLabelText("Player name"), {
       clipboardData: { getData: () => "ben\nDina" },
     });
-    expect(within(dialog).getByText("Already on the list: will be skipped")).toBeInTheDocument();
+    expect(within(dialog).getByText("Already on the list")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Add 1 player" })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove it" }));
     await act(async () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "Add 1 player" }));
     });

@@ -1,15 +1,10 @@
-import { SKILL_LABELS, SKILLS } from "@/features/players/player-status";
+import { SKILL_DOT, SKILL_LABELS, SKILLS } from "@/features/players/player-status";
 import type { SkillLevel } from "@/services/players";
 
-// Three bars, filled up to the skill level (from the old Add Player modal).
-export function SkillIcon({ bars }: { bars: 1 | 2 | 3 }) {
-  return (
-    <svg width="14" height="10" viewBox="0 0 28 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="0" y="12" width="7" height="8" rx="1.5" opacity={bars >= 1 ? 1 : 0.25} />
-      <rect x="10" y="7" width="7" height="13" rx="1.5" opacity={bars >= 2 ? 1 : 0.25} />
-      <rect x="20" y="0" width="7" height="20" rx="1.5" opacity={bars >= 3 ? 1 : 0.25} />
-    </svg>
-  );
+// A dot in the skill's color (owner chose it over the old signal bars): the same
+// light / mid / dark blue as the initials circles in the lists.
+export function SkillDot({ skill }: { skill: SkillLevel }) {
+  return <span aria-hidden="true" className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${SKILL_DOT[skill]}`} />;
 }
 
 // One-tap skill choice with the words written out (the old bulk picker had
@@ -48,7 +43,8 @@ export function SkillSegmented({
               selected ? "bg-white text-blue-700 shadow-sm ring-1 ring-blue-200" : "text-slate-500 hover:text-slate-800"
             }`}
           >
-            <SkillIcon bars={skill.bars} />
+            {/* Only the picked skill shows its dot: a dot on every option was too much (owner). */}
+            {selected && <SkillDot skill={skill.value} />}
             {SKILL_LABELS[skill.value]}
           </button>
         );

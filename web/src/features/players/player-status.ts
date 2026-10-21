@@ -18,6 +18,19 @@ export const SKILL_LABELS: Record<SkillLevel, string> = {
 };
 
 // Skill levels in order, with how many bars the skill icon fills.
+// One color per skill, light to dark in the app's blue (owner, 2026-10-21): the
+// dot in the skill picker and the initials circle in lists use the same color.
+export const SKILL_DOT: Record<SkillLevel, string> = {
+  beginner: "bg-sky-300",
+  intermediate: "bg-sky-500",
+  advance: "bg-blue-700",
+};
+export const SKILL_AVATAR: Record<SkillLevel, string> = {
+  beginner: "bg-sky-200 text-sky-900",
+  intermediate: "bg-sky-500 text-white",
+  advance: "bg-blue-700 text-white",
+};
+
 export const SKILLS: { value: SkillLevel; bars: 1 | 2 | 3 }[] = [
   { value: "beginner", bars: 1 },
   { value: "intermediate", bars: 2 },
