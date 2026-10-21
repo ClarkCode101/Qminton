@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { NAV_TABS, type NavTab } from "@/app/nav-tabs";
+import { useAuth } from "@/features/auth/auth-context";
 import { useSignOut } from "@/features/auth/use-sign-out";
 import { DisplayQrDialog } from "@/features/display/display-qr";
 import { CreateQueueDialog, DeleteQueueDialog } from "@/features/queues/queue-dialogs";
@@ -27,32 +28,27 @@ const iconButtonClass = (isOpen: boolean) =>
 
 function ShortcutIcon({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-sky-100 bg-sky-50/70 text-sky-700">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-        {children}
-      </svg>
-    </span>
-  );
-}
-
-function ShortcutText({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <span className="min-w-0 flex-1">
-      <span className="block">{title}</span>
-      <span className="mt-0.5 block text-xs font-medium text-slate-500">{subtitle}</span>
-    </span>
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+      {children}
+    </svg>
   );
 }
 
 const shortcutRowClass =
-  "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 cursor-pointer";
+  "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60 cursor-pointer";
+
+const groupLabelClass = "px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500";
 
 // Floating bottom navbar (ported from the old Navbar): queue list, tabs, shortcuts.
-// New in Qminton: "Log out" in Shortcuts, because there is now a login, and
-// "Display QR" (owner's addition in step 11) so players can follow on their phones.
+// New in Qminton: "Log out" in More, because there is now a login, and the
+// display QR (owner's addition in step 11) so players can follow on their phones.
+// More menu redesigned 2026-10-21 (owner): "Public display" group (open / QR),
+// then who is signed in + Log out. "Landing" left out: the Queues popup has
+// "See all queues".
 export function Navbar({ queueId, activeTab, onTabChange }: Props) {
   const navigate = useNavigate();
   const { signOut, isSigningOut } = useSignOut();
+  const email = useAuth().session?.user.email;
   const [showQueueList, setShowQueueList] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showNewQueue, setShowNewQueue] = useState(false);
@@ -195,22 +191,13 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
               </button>
 
               {showShortcuts && (
-                <div className="queue-list-panel absolute bottom-[calc(100%+0.75rem)] right-0 z-50 w-56 overflow-hidden rounded-3xl border border-sky-200 bg-white shadow-[0_20px_40px_rgba(14,116,144,0.16)]">
-                  <div className="border-b border-sky-100 px-4 py-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">More</p>
-                    <p className="mt-0.5 text-[13px] leading-5 text-slate-500">Open another view for this workspace.</p>
-                  </div>
-
-                  <div className="p-2">
-                    <Link to="/landing" onClick={() => setShowShortcuts(false)} className={shortcutRowClass}>
-                      <ShortcutIcon>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5v13.5H3.75z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 9h9M7.5 12h6M7.5 15h4.5" />
-                      </ShortcutIcon>
-                      <ShortcutText title="Landing" subtitle="Open the launcher deck" />
-                    </Link>
-
-                    {queueId && (
+                <div className="queue-list-panel absolute bottom-[calc(100%+0.75rem)] right-0 z-50 w-60 overflow-hidden rounded-3xl border border-sky-200 bg-white p-2 shadow-[0_20px_40px_rgba(14,116,144,0.16)]">
+                  {/* No queue open (landing / empty home): only the account part. */}
+                  {queueId && (
+                    <div role="group" aria-labelledby="more-display-label" className="border-b border-sky-100 pb-2">
+                      <p id="more-display-label" className={groupLabelClass}>
+                        Public display
+                      </p>
                       <Link
                         to={getQueueDisplayPath(queueId)}
                         target="_blank"
@@ -219,14 +206,11 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
                         className={shortcutRowClass}
                       >
                         <ShortcutIcon>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6.75A2.25 2.25 0 0 1 6.75 4.5h10.5A2.25 2.25 0 0 1 19.5 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 17.25V6.75Z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m9 15 6-6M10.5 9H15v4.5" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                         </ShortcutIcon>
-                        <ShortcutText title="Display" subtitle="Open the public display screen" />
+                        <span className="flex-1">Open display</span>
+                        <span className="text-[11px] font-medium text-slate-400">New tab</span>
                       </Link>
-                    )}
-
-                    {queueId && (
                       <button
                         type="button"
                         onClick={() => {
@@ -239,15 +223,25 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75h6v6h-6v-6Zm10.5 0h6v6h-6v-6Zm-10.5 10.5h6v6h-6v-6Z" />
                           <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 14.25h2.25v2.25h-2.25zM18 18h2.25v2.25H18zM18 14.25h2.25M14.25 18v2.25" />
                         </ShortcutIcon>
-                        <ShortcutText title="Display QR" subtitle="Let players scan the display" />
+                        Show QR code
                       </button>
-                    )}
+                    </div>
+                  )}
 
+                  <div className={queueId ? "pt-2" : undefined}>
+                    {email && (
+                      <p className="px-3 pb-1 pt-1 text-xs text-slate-500">
+                        Signed in as
+                        <span className="block truncate font-semibold text-slate-700" title={email}>
+                          {email}
+                        </span>
+                      </p>
+                    )}
                     <button type="button" onClick={() => void signOut()} disabled={isSigningOut} className={shortcutRowClass}>
                       <ShortcutIcon>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
                       </ShortcutIcon>
-                      <ShortcutText title={isSigningOut ? "Logging out…" : "Log out"} subtitle="Sign out of this device" />
+                      {isSigningOut ? "Logging out…" : "Log out"}
                     </button>
                   </div>
                 </div>
