@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { QueuePage } from "@/pages/queue-page";
 import { listBillingPlayers, listLedger } from "@/services/billing";
-import { listPlayerBilledTotals } from "@/services/players";
 import { getQueue, type Queue } from "@/services/queues";
 import { subscribeToQueueChanges, type QueueChange } from "@/services/realtime";
 import { renderApp } from "@/test/render-app";
@@ -11,10 +10,7 @@ import { renderApp } from "@/test/render-app";
 // Never talk to the real Supabase in tests.
 vi.mock("@/services/queues", () => ({ getQueue: vi.fn(), listQueues: vi.fn(async () => []) }));
 vi.mock("@/services/auth", () => ({ signOut: vi.fn() }));
-vi.mock("@/services/players", () => ({
-  listPlayers: vi.fn(async () => []),
-  listPlayerBilledTotals: vi.fn(async () => new Map()),
-}));
+vi.mock("@/services/players", () => ({ listPlayers: vi.fn(async () => []) }));
 vi.mock("@/services/matches", () => ({
   listActiveMatches: vi.fn(async () => []),
   listMatchHistory: vi.fn(async () => ({ entries: [], total: 0 })),
@@ -52,7 +48,6 @@ describe("queue page loading and live updates", () => {
     vi.mocked(subscribeToQueueChanges).mockClear();
     vi.mocked(listLedger).mockClear();
     vi.mocked(listBillingPlayers).mockClear();
-    vi.mocked(listPlayerBilledTotals).mockClear();
   });
 
   it("loads billing data only when its tab opens", async () => {
@@ -62,16 +57,14 @@ describe("queue page loading and live updates", () => {
     expect(screen.getByRole("region", { name: "Up Next" })).toHaveTextContent("No matches waiting.");
     expect(listLedger).not.toHaveBeenCalled();
     expect(listBillingPlayers).not.toHaveBeenCalled();
-    expect(listPlayerBilledTotals).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Billing" }));
     expect(await screen.findByText("Billing workspace")).toBeInTheDocument();
     expect(listLedger).toHaveBeenCalledTimes(1);
     expect(listBillingPlayers).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Players" }));
-    await screen.findByText("Player Statistics");
-    expect(listPlayerBilledTotals).toHaveBeenCalledTimes(1);
+    // Only two tabs now (the Players tab was removed).
+    expect(screen.queryByRole("button", { name: "Players" })).not.toBeInTheDocument();
   });
 
   it("skips the echo of a change it already shows, reloads for newer ones", async () => {

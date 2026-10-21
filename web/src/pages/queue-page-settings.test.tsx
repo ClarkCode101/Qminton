@@ -16,7 +16,6 @@ vi.mock("@/services/billing", () => ({ listLedger: vi.fn(async () => []), listBi
 vi.mock("@/services/matches", () => ({ listActiveMatches: vi.fn(async () => []), listMatchHistory: vi.fn(async () => ({ entries: [], total: 0 })) }));
 vi.mock("@/services/players", () => ({
   listPlayers: vi.fn(async () => []),
-  listPlayerBilledTotals: vi.fn(async () => new Map()),
 }));
 
 function makeQueue(overrides: Partial<Queue> = {}): Queue {

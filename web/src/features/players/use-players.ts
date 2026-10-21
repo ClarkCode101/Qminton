@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { toUserMessage } from "@/services/errors";
 import {
   bulkAddPlayers,
-  listPlayerBilledTotals,
   listPlayers,
   movePlayerToBottom,
   removePlayer,
@@ -16,20 +15,14 @@ import {
 
 export const playerKeys = {
   list: (queueId: string) => ["queues", queueId, "players"] as const,
-  billed: (queueId: string) => ["queues", queueId, "players", "billed"] as const,
 };
 
 export function usePlayers(queueId: string) {
   return useQuery({ queryKey: playerKeys.list(queueId), queryFn: () => listPlayers(queueId) });
 }
 
-// Only needed by the Players tab table (enabled = false on the other tabs).
-export function usePlayerBilledTotals(queueId: string, { enabled = true }: { enabled?: boolean } = {}) {
-  return useQuery({ queryKey: playerKeys.billed(queueId), queryFn: () => listPlayerBilledTotals(queueId), enabled });
-}
-
-// All player actions for one queue. After any change, the players list, the
-// billed totals and the landing page counts are reloaded in the background
+// All player actions for one queue. After any change, the players list and
+// the landing page counts are reloaded in the background
 // (the result shows right away, without waiting for the reload). Messages
 // match the old app; errors show the database's readable message.
 export function usePlayerActions(queueId: string) {

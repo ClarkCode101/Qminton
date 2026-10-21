@@ -2,14 +2,7 @@ import { act, fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { QueuePage } from "@/pages/queue-page";
-import {
-  bulkAddPlayers,
-  listPlayerBilledTotals,
-  listPlayers,
-  removePlayer,
-  setPlayerPaused,
-  type Player,
-} from "@/services/players";
+import { bulkAddPlayers, listPlayers, removePlayer, setPlayerPaused, type Player } from "@/services/players";
 import { getQueue } from "@/services/queues";
 import { renderApp } from "@/test/render-app";
 
@@ -23,7 +16,6 @@ vi.mock("@/services/billing", () => ({ listLedger: vi.fn(async () => []), listBi
 vi.mock("@/services/matches", () => ({ listActiveMatches: vi.fn(async () => []), listMatchHistory: vi.fn(async () => ({ entries: [], total: 0 })) }));
 vi.mock("@/services/players", () => ({
   listPlayers: vi.fn(),
-  listPlayerBilledTotals: vi.fn(),
   bulkAddPlayers: vi.fn(),
   removePlayer: vi.fn(),
   setPlayerPaused: vi.fn(),
@@ -73,7 +65,6 @@ describe("queue page players", () => {
       updated_at: "2026-10-20T00:00:00Z",
     });
     vi.mocked(listPlayers).mockResolvedValue([makePlayer(1, "Juan"), makePlayer(2, "Maria", { is_playing: true })]);
-    vi.mocked(listPlayerBilledTotals).mockResolvedValue(new Map([[1, 50], [2, 70]]));
   });
 
   it("shows the players sidebar next to the courts", async () => {
@@ -233,14 +224,13 @@ describe("queue page players", () => {
     expect(within(sidebar).getByText("Currently on court.")).toBeInTheDocument();
   });
 
-  it("Players tab shows the stats table with billed totals", async () => {
+  it("has only the Courts and Billing tabs (the Players tab was removed)", async () => {
     renderApp(routes, "/queue/q1");
 
-    fireEvent.click(await screen.findByRole("button", { name: "Players" }));
-    // Billed totals load when the Players tab opens.
-    const table = await screen.findByRole("table");
-    expect(within(table).getByText("Total Billed")).toBeInTheDocument();
-    expect(within(table).getByText("₱50")).toBeInTheDocument();
-    expect(within(table).getByRole("button", { name: "Remove Maria" })).toBeDisabled();
+    await screen.findByRole("complementary", { name: "Players" });
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(nav).getByRole("button", { name: "Courts" })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: "Billing" })).toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: "Players" })).not.toBeInTheDocument();
   });
 });

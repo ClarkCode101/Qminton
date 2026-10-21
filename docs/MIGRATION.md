@@ -372,6 +372,14 @@ right) **without animation**, so both were thrown away and the screen stays as c
   isn't here yet. They join on break and are charged when you mark them Ready."; toast "Session started:
   9 players added, 2 on break until they arrive"; Mark Ready on a late one → "Ana arrived. Court fee
   billed." `database.ts` + test fixtures got `court_fee_pending`. Tests: 188.
+- **Players tab removed** (owner, 2026-10-21: "parang walang kwenta"). Exception to "keep every old
+  feature", like Landing in More. What it showed lives elsewhere: status / skill / games / remove in the
+  Courts tab player list (Expand view), queue order in the sidebar, money in Billing (more complete).
+  Matchmaking already keeps games fair, so a "who played least" table isn't needed. (A "session
+  overview" version with Status / Last played / Behind was built first, then dropped unused.) Navbar =
+  **Courts | Billing**; on phones the two tabs share the width. Removed: `player-stats-table.tsx`,
+  `usePlayerBilledTotals` / `listPlayerBilledTotals` / `playerKeys.billed`, the empty-workspace Players
+  preview. Tests: 188.
 
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.

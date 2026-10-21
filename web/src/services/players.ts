@@ -22,17 +22,6 @@ export async function listPlayers(queueId: string): Promise<Player[]> {
   return data;
 }
 
-// What each player has been billed so far (court fee + game rates + adjustments).
-// Includes removed players so their totals are still known.
-export async function listPlayerBilledTotals(queueId: string): Promise<Map<number, number>> {
-  const { data, error } = await supabase
-    .from("player_balances")
-    .select("player_id, billed_total")
-    .eq("queue_id", queueId);
-  if (error) throw error;
-  return new Map(data.map((row) => [row.player_id ?? 0, row.billed_total ?? 0]));
-}
-
 // Adds one or many players (the Add Players list). Blank and duplicate names
 // are skipped. Returns only the added players.
 export async function bulkAddPlayers(queueId: string, players: NewPlayer[]): Promise<Player[]> {

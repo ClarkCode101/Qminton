@@ -3,7 +3,7 @@ import { getEmptyCourts } from "@/features/courts/court-view";
 import { CourtsGrid } from "@/features/courts/courts-grid";
 
 // Preview screens shown on "/" when the organizer has no queue yet
-// (ported from the old app/page.tsx: EmptyCourtsTab / EmptyPlayersTab / EmptyBillingTab).
+// (ported from the old app/page.tsx: EmptyCourtsTab / EmptyBillingTab; the Players tab was removed).
 
 const EMPTY_COURTS_PREVIEW = getEmptyCourts(2);
 const PLAYERS_PREVIEW = ["Bench slot 1", "Bench slot 2", "Bench slot 3"];
@@ -125,7 +125,7 @@ function EmptyCourtsTab({ onCreateQueue }: { onCreateQueue: () => void }) {
                   <div className="rounded-3xl border border-sky-100 bg-sky-50/45 p-4">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-600">Empty Workspace</p>
                     <p className="mt-3 text-sm leading-6 text-slate-600">
-                      The navbar stays available below, so you can check the Players and Billing empty states before starting a queue.
+                      The navbar stays available below, so you can check the Billing empty state before starting a queue.
                     </p>
                   </div>
                 </div>
@@ -133,72 +133,6 @@ function EmptyCourtsTab({ onCreateQueue }: { onCreateQueue: () => void }) {
             </div>
           </aside>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyPlayersTab({ onCreateQueue }: { onCreateQueue: () => void }) {
-  return (
-    <div className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top_left,#eff6ff,#f8fbff_36%,#eef6ff)] md:overflow-hidden">
-      <div className="app-shell-safe-bottom mx-auto h-full w-full max-w-6xl p-4 sm:p-5 lg:p-6">
-        <section className="overflow-hidden rounded-[28px] border border-sky-200 bg-white/95 shadow-sm backdrop-blur-sm md:flex md:h-full md:min-h-0 md:flex-col">
-          <div className="border-b border-sky-100 px-5 py-4 sm:px-6">
-            <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-500">Players</p>
-                <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
-                  Build the lineup after opening a queue.
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                  This tab will hold the full player lane, search, filters, and player cards. Right now it stays in preview because no queue is active.
-                </p>
-              </div>
-
-              <button type="button" onClick={onCreateQueue} className={`${primaryButtonClass} px-5`}>
-                + Create Queue
-              </button>
-            </div>
-          </div>
-
-          <div className="grid gap-4 p-5 sm:p-6 md:min-h-0 md:flex-1 md:grid-cols-[minmax(0,1.1fr)_minmax(280px,340px)] md:overflow-hidden">
-            <div className="rounded-[28px] border border-sky-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5 shadow-sm md:flex md:min-h-0 md:flex-col">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600">Bench Preview</p>
-                  <p className="mt-1 text-lg font-black tracking-tight text-slate-900">No players yet</p>
-                </div>
-                <span className="rounded-full border border-sky-100 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
-                  0 ready
-                </span>
-              </div>
-
-              <div className="mt-5 grid gap-3 md:min-h-0 md:flex-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
-                {PLAYERS_PREVIEW.map((playerLabel) => (
-                  <PreviewBenchCard key={playerLabel} label={playerLabel} className="md:h-full" />
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-4 md:grid md:min-h-0 md:grid-rows-2 md:gap-4 md:space-y-0">
-              <div className="rounded-[28px] border border-emerald-100 bg-[linear-gradient(180deg,#ffffff_0%,#f3fff8_100%)] p-5 shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-600">What unlocks here</p>
-                <div className="mt-4 space-y-3 text-sm text-slate-600">
-                  <p>Ready, queued, resting, and on-break players.</p>
-                  <p>Bench search and filter controls.</p>
-                  <p>Add-player flow from the same sidebar.</p>
-                </div>
-              </div>
-
-              <div className="rounded-[28px] border border-sky-100 bg-sky-50/50 p-5 shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-600">Current State</p>
-                <p className="mt-4 text-sm leading-6 text-slate-600">
-                  No queue means no live player lane yet. Start a queue and this page immediately becomes the real player management view.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   );
@@ -273,7 +207,6 @@ function EmptyBillingTab({ onCreateQueue }: { onCreateQueue: () => void }) {
 }
 
 export function EmptyWorkspaceTab({ tab, onCreateQueue }: { tab: NavTab; onCreateQueue: () => void }) {
-  if (tab === "players") return <EmptyPlayersTab onCreateQueue={onCreateQueue} />;
   if (tab === "billing") return <EmptyBillingTab onCreateQueue={onCreateQueue} />;
   return <EmptyCourtsTab onCreateQueue={onCreateQueue} />;
 }

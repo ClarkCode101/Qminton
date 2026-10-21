@@ -22,8 +22,7 @@ import {
   useStartNextMatch,
 } from "@/features/matchmaking/use-matchmaking";
 import { AddPlayerModal } from "@/features/players/add-player-modal";
-import { PlayerStatsTable } from "@/features/players/player-stats-table";
-import { usePlayerActions, usePlayerBilledTotals, usePlayers } from "@/features/players/use-players";
+import { usePlayerActions, usePlayers } from "@/features/players/use-players";
 import { RenameQueueDialog } from "@/features/queues/rename-queue-dialog";
 import { queueKeys, useQueue, useUpdateQueueSettings } from "@/features/queues/use-queues";
 import { PlannedSession } from "@/features/signups/planned-session";
@@ -35,15 +34,14 @@ import type { Player } from "@/services/players";
 import type { Queue } from "@/services/queues";
 
 // Organizer view of one queue (ported from the old app/queue/page.tsx):
-// Courts tab, Players tab table, Billing tab. Changes made on another device
-// show up live (Realtime), like the old 10-second refresh but right away.
+// Courts tab and Billing tab (the old Players tab table was removed, owner
+// 2026-10-21). Changes made on another device show up live (Realtime), like
+// the old 10-second refresh but right away.
 export function QueuePage() {
   const { queueId = "" } = useParams();
   const [activeTab, setActiveTab] = useState<NavTab>("courts");
   const queueQuery = useQueue(queueId);
   const playersQuery = usePlayers(queueId);
-  // Tab-only data loads when its tab is open, so the Courts tab reloads less.
-  const billedQuery = usePlayerBilledTotals(queueId, { enabled: activeTab === "players" });
   const actions = usePlayerActions(queueId);
   const updateSettings = useUpdateQueueSettings(queueId);
   const matchesQuery = useActiveMatches(queueId);
@@ -270,17 +268,6 @@ export function QueuePage() {
           onTogglePause={(player) => actions.togglePause.mutate(player)}
           onMoveToBottom={(player) => actions.moveToBottom.mutate(player)}
         />
-      )}
-
-      {activeTab === "players" && (
-        <div className="app-shell-safe-bottom flex-1 overflow-y-auto p-6">
-          <h2 className="mb-4 text-lg font-semibold text-slate-600">Player Statistics</h2>
-          {billedQuery.isPending ? (
-            <p className="text-sm text-slate-500">Loading...</p>
-          ) : (
-            <PlayerStatsTable players={players} billedByPlayerId={billedQuery.data ?? new Map()} onRemove={setPlayerToRemove} />
-          )}
-        </div>
       )}
 
       {activeTab === "billing" &&

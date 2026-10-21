@@ -153,6 +153,7 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
 
             <div className="min-w-0 flex-1 overflow-x-auto sm:flex-none">
               {activeTab && onTabChange ? (
+                // Phones: the two tabs share the width evenly (no empty gray end).
                 <div className="flex min-w-max items-center gap-1 rounded-full bg-slate-100 p-1">
                   {NAV_TABS.map((tab) => (
                     <button
@@ -160,7 +161,7 @@ export function Navbar({ queueId, activeTab, onTabChange }: Props) {
                       type="button"
                       onClick={() => onTabChange(tab.id)}
                       aria-current={activeTab === tab.id ? "page" : undefined}
-                      className={`rounded-full px-2.5 py-1.5 text-sm font-semibold transition-all cursor-pointer sm:px-3.5 ${
+                      className={`flex-1 rounded-full px-2.5 py-1.5 text-sm font-semibold transition-all cursor-pointer sm:flex-none sm:px-3.5 ${
                         activeTab === tab.id ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
                       }`}
                     >
