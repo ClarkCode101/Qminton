@@ -307,6 +307,26 @@ right) **without animation**, so both were thrown away and the screen stays as c
   Public display), the corner QR on the Display page, `display-qr.tsx` + its test, `getQueueDisplayUrl`.
   The join QR was NOT put on the Display page on purpose: the display link is view-only and can be passed
   around; only the join QR can add players. `qrcode.react` stays (join / sign-up QR). Tests: 178.
+- **Join page remembers who joined from the phone** (owner chose idea #3, 2026-10-21): `lib/my-check-ins.ts`
+  keeps the names per link in localStorage for 12 hours (the same queue may be used another day). Opening
+  the link again / refreshing shows "You're in" + "Joined from this phone: ✓ Ana" instead of the form (fewer
+  double joins), and the names stay bold on the courts. "Add someone else" (only while check-in is open)
+  shows the form with a Cancel. Once joined, "View courts" is the blue button.
+- **Leave the queue from the phone** (owner's request 2026-10-21; SQL `20261101120000_leave_queue.sql`,
+  **applied via MCP as `leave_queue`** with the owner's OK; verified: all 3 functions security definer,
+  anon + authenticated can execute, anon can't read `players.leave_code_hash`; security advisor = only the
+  known intentional warnings, now incl. anon `leave_queue`; types regenerated = hand-written + the new column). Owner chose: court fee given back only if no game played yet; leaving still works
+  after check-in is closed. `players.leave_code_hash` (sha256, like sign-ups); `check_in` returns a secret
+  `code`; new `leave_queue(code)` (anon): same rule as Remove (not on a court / in Up Next, readable
+  messages), soft delete + reindex + touch, refund = negative adjustment "Court fee returned: left before
+  playing" (none when the fee is 0 or a game was played). `get_signup` "mine" also covers live queues (the
+  phone's codes that are still active players), so someone the organizer removed drops off the phone.
+  Live `check_in` / `get_signup` = the planned_sessions versions (md5 checked first). Dry-run
+  `supabase/dry-runs/20261101_leave_queue_dry_run.sql` via MCP: 20/20 OK.
+  Frontend: `my-check-ins.ts` keeps {name, code} per link (12 h); the page sends sign-up + check-in codes;
+  "Joined from this phone" rows have "Leave queue" → "Leave the queue, Ana? Leave / Stay"; message after
+  leaving ("… The ₱50 court fee was taken off."). `leaveQueue` service. Test player fixtures got
+  `leave_code_hash: null`. Tests: 187.
 
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.

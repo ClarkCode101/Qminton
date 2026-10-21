@@ -304,6 +304,7 @@ export type Database = {
           is_playing: boolean
           is_waiting_match: boolean
           last_match_no: number
+          leave_code_hash: string | null
           name: string
           queue_id: string
           queue_position: number
@@ -319,6 +320,7 @@ export type Database = {
           is_playing?: boolean
           is_waiting_match?: boolean
           last_match_no?: number
+          leave_code_hash?: string | null
           name: string
           queue_id: string
           queue_position?: number
@@ -334,6 +336,7 @@ export type Database = {
           is_playing?: boolean
           is_waiting_match?: boolean
           last_match_no?: number
+          leave_code_hash?: string | null
           name?: string
           queue_id?: string
           queue_position?: number
@@ -660,6 +663,7 @@ export type Database = {
           is_playing: boolean
           is_waiting_match: boolean
           last_match_no: number
+          leave_code_hash: string | null
           name: string
           queue_id: string
           queue_position: number
@@ -740,6 +744,7 @@ export type Database = {
       }
       get_check_in: { Args: { p_token: string }; Returns: Json }
       get_display: { Args: { p_queue_id: string }; Returns: Json }
+      leave_queue: { Args: { p_code: string }; Returns: Json }
       move_player_to_bottom: {
         Args: { p_player_id: number; p_queue_id: string }
         Returns: undefined
@@ -856,6 +861,7 @@ export type Database = {
           is_playing: boolean
           is_waiting_match: boolean
           last_match_no: number
+          leave_code_hash: string | null
           name: string
           queue_id: string
           queue_position: number

@@ -10,8 +10,9 @@ import { MAX_PLAYER_NAME_LENGTH } from "@/features/players/bulk-names";
 import { SkillSegmented } from "@/features/players/skill-picker";
 import { useQueueLiveUpdates } from "@/hooks/use-queue-live-updates";
 import { formatCurrency, formatSessionDate, gameModeLabel } from "@/lib/format";
+import { addMyCheckIn, readMyCheckIns, removeMyCheckIn } from "@/lib/my-check-ins";
 import { readMySignups, writeMySignups } from "@/lib/my-signups";
-import { checkIn, type CheckInResult } from "@/services/check-in";
+import { checkIn, leaveQueue, type CheckInResult } from "@/services/check-in";
 import { toUserMessage } from "@/services/errors";
 import type { SkillLevel } from "@/services/players";
 import { cancelSignup, getSignupPage, signUp, type MySignup, type SignupPage } from "@/services/signups";
@@ -29,7 +30,10 @@ export function CheckInPage() {
   const { token = "" } = useParams();
   // Codes this phone got when signing up (to show "You're going" and cancel).
   const [mySignups, setMySignups] = useState<MySignup[]>(() => readMySignups(token));
-  const codes = mySignups.map((signup) => signup.code);
+  // Codes this phone got when checking in on a live session (to show "You're in" and leave).
+  const [myCheckIns, setMyCheckIns] = useState<MySignup[]>(() => readMyCheckIns(token));
+  // Both go to the server; it matches the sign-ups (planned) or the players (live).
+  const codes = [...mySignups, ...myCheckIns].map((item) => item.code);
   const infoQuery = useQuery({
     queryKey: ["join", token, codes],
     queryFn: () => getSignupPage(token, codes),
@@ -72,7 +76,7 @@ export function CheckInPage() {
   if (info.status === "planned") {
     return <SignupView token={token} info={info} mySignups={mySignups} onMineChange={saveMine} onChanged={() => void infoQuery.refetch()} />;
   }
-  return <CheckInView token={token} info={info} />;
+  return <CheckInView token={token} info={info} onMineChange={setMyCheckIns} onChanged={() => void infoQuery.refetch()} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -248,24 +252,66 @@ function SignupForm({
 // 2026-10-21). The courts view is "?view=courts", so the phone's back button
 // returns to the form. No "Organizer View" link here: players only.
 // ---------------------------------------------------------------------------
-function CheckInView({ token, info }: { token: string; info: SignupPage }) {
+function CheckInView({
+  token,
+  info,
+  onMineChange,
+  onChanged,
+}: {
+  token: string;
+  info: SignupPage;
+  onMineChange: (next: MySignup[]) => void;
+  onChanged: () => void;
+}) {
   const ids = useId();
   const [name, setName] = useState("");
   const [skill, setSkill] = useState<SkillLevel | null>(null);
+  // The join just made (with the spot in line); gone after a refresh.
   const [joined, setJoined] = useState<CheckInResult | null>(null);
-  // Everyone joined from this phone, shown in bold on the courts.
-  const [joinedNames, setJoinedNames] = useState<string[]>([]);
+  // "Add someone else" shows the form again.
+  const [addingAnother, setAddingAnother] = useState(false);
+  // Shown after leaving the queue.
+  const [leftMessage, setLeftMessage] = useState<string | null>(null);
   const join = useMutation({ mutationFn: () => checkIn(token, { name: name.trim(), skill: skill ?? "beginner" }) });
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const onLeft = (result: { name: string; refunded: number }, code: string) => {
+    onMineChange(removeMyCheckIn(token, code));
+    if (joined?.code === code) setJoined(null);
+    setLeftMessage(
+      result.refunded > 0
+        ? `${result.name} left the queue. The ${formatCurrency(result.refunded)} court fee was taken off.`
+        : `${result.name} left the queue.`,
+    );
+    onChanged();
+  };
+
+  // Players from this phone still in the queue (the server checks the codes, so
+  // someone the organizer removed drops off). The welcome uses the join just made
+  // while that list reloads (a moment).
+  const mine = info.mine;
+  const joinedNames = joined && !mine.some((item) => item.code === joined.code) ? [...mine.map((item) => item.name), joined.name] : mine.map((item) => item.name);
+  const showJoined = (joined !== null || mine.length > 0) && !addingAnother;
+
+  const leftNotice = leftMessage && (
+    <p role="status" className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+      {leftMessage}
+    </p>
+  );
+
+  // Once joined, watching is the main thing left to do: the blue button.
   const viewCourts = (
-    <button type="button" onClick={() => setSearchParams({ view: "courts" })} className={secondaryButtonClass}>
+    <button
+      type="button"
+      onClick={() => setSearchParams({ view: "courts" })}
+      className={showJoined ? primaryButtonClass : secondaryButtonClass}
+    >
       View courts
     </button>
   );
 
   if (searchParams.get("view") === "courts") {
-    const backLabel = joined || !info.isOpen ? "Back" : "Join the queue";
+    const backLabel = showJoined || !info.isOpen ? "Back" : "Join the queue";
     return (
       <Screen wide>
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">{info.queueName}</p>
@@ -279,27 +325,43 @@ function CheckInView({ token, info }: { token: string; info: SignupPage }) {
     );
   }
 
-  if (joined) {
+  if (showJoined) {
     return (
       <Screen below={viewCourts}>
+        {leftNotice}
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600">You're in</p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">Welcome, {joined.name}!</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          You're <span className="font-semibold text-slate-900">#{joined.position}</span> in line for {info.queueName}. Tap View
-          courts to see when you play.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            setJoined(null);
-            setName("");
-            setSkill(null);
-            join.reset();
-          }}
-          className={`mt-6 ${secondaryButtonClass}`}
-        >
-          Add someone else
-        </button>
+        {joined ? (
+          <>
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">Welcome, {joined.name}!</h1>
+            <p className="mt-2 text-sm text-slate-600">
+              You're <span className="font-semibold text-slate-900">#{joined.position}</span> in line for {info.queueName}. Tap
+              View courts to see when you play.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">{info.queueName}</h1>
+            <p className="mt-2 text-sm text-slate-600">Tap View courts to see when you play.</p>
+          </>
+        )}
+        {/* Each name can leave from here (owner's request): not while playing / in Up Next. */}
+        {mine.length > 0 && <MyPlayers mine={mine} onLeft={onLeft} />}
+        {info.isOpen && (
+          <button
+            type="button"
+            onClick={() => {
+              setJoined(null);
+              setAddingAnother(true);
+              setLeftMessage(null);
+              setName("");
+              setSkill(null);
+              join.reset();
+            }}
+            className={`mt-6 ${secondaryButtonClass}`}
+          >
+            Add someone else
+          </button>
+        )}
       </Screen>
     );
   }
@@ -307,6 +369,7 @@ function CheckInView({ token, info }: { token: string; info: SignupPage }) {
   if (!info.isOpen) {
     return (
       <Screen below={viewCourts}>
+        {leftNotice}
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">{info.queueName}</p>
         <h1 className="mt-1 text-xl font-black tracking-tight text-slate-900">Check-in is closed</h1>
         <p className="mt-2 text-sm text-slate-500">Ask the organizer if you still need to join.</p>
@@ -320,6 +383,7 @@ function CheckInView({ token, info }: { token: string; info: SignupPage }) {
 
   return (
     <Screen below={viewCourts}>
+      {leftNotice}
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">Join the queue</p>
       <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">{info.queueName}</h1>
 
@@ -331,8 +395,10 @@ function CheckInView({ token, info }: { token: string; info: SignupPage }) {
           if (!canJoin) return;
           join.mutate(undefined, {
             onSuccess: (result) => {
+              onMineChange(addMyCheckIn(token, { name: result.name, code: result.code }));
               setJoined(result);
-              setJoinedNames((names) => [...names, result.name]);
+              setAddingAnother(false);
+              setLeftMessage(null);
             },
           });
         }}
@@ -362,8 +428,88 @@ function CheckInView({ token, info }: { token: string; info: SignupPage }) {
         <button type="submit" disabled={!canJoin} className={primaryButtonClass}>
           {join.isPending ? "Joining..." : "Join"}
         </button>
+        {addingAnother && (
+          <button type="button" onClick={() => setAddingAnother(false)} className={secondaryButtonClass}>
+            Cancel
+          </button>
+        )}
       </form>
     </Screen>
+  );
+}
+
+// The players this phone checked in, each with "Leave queue" (asks first).
+function MyPlayers({
+  mine,
+  onLeft,
+}: {
+  mine: MySignup[];
+  onLeft: (result: { name: string; refunded: number }, code: string) => void;
+}) {
+  // The row asking "Leave the queue?" (its code).
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const leave = useMutation({
+    mutationFn: (code: string) => leaveQueue(code),
+    onSuccess: (result, code) => {
+      setConfirming(null);
+      onLeft(result, code);
+    },
+  });
+
+  return (
+    <div className="mt-4 rounded-2xl border border-slate-200 p-3">
+      <p className="text-sm font-semibold text-slate-800">Joined from this phone</p>
+      <ul className="mt-1 divide-y divide-slate-100">
+        {mine.map((item) => (
+          <li key={item.code} className="py-2">
+            {confirming === item.code ? (
+              <div>
+                <p className="text-sm font-semibold text-slate-800">Leave the queue, {item.name}?</p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => leave.mutate(item.code)}
+                    disabled={leave.isPending}
+                    className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg bg-rose-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
+                  >
+                    {leave.isPending ? "Leaving..." : "Leave"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirming(null);
+                      leave.reset();
+                    }}
+                    className="inline-flex min-h-9 flex-1 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 cursor-pointer"
+                  >
+                    Stay
+                  </button>
+                </div>
+                {leave.isError && (
+                  <p role="alert" className="mt-2 text-xs font-medium text-rose-600">
+                    {toUserMessage(leave.error, "Could not leave. Please try again.")}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate text-sm text-slate-700">✓ {item.name}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirming(item.code);
+                    leave.reset();
+                  }}
+                  className="inline-flex min-h-9 shrink-0 items-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 cursor-pointer"
+                >
+                  Leave queue
+                </button>
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

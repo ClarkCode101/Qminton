@@ -14,6 +14,8 @@ export interface CheckInResult {
   // Their spot in line, 1-based.
   position: number;
   queueId: string;
+  // Secret code the phone keeps to leave the queue later (only its hash is stored).
+  code: string;
 }
 
 // Organizer: read the check-in settings (created, closed, the first time), and
@@ -35,6 +37,15 @@ export async function setCheckIn(
 export async function checkIn(token: string, player: { name: string; skill: SkillLevel }): Promise<CheckInResult> {
   const { data, error } = await supabase.rpc("check_in", { p_token: token, p_name: player.name, p_skill: player.skill });
   if (error) throw error;
-  const raw = data as { name: string; position: number; queue_id: string };
-  return { name: raw.name, position: raw.position, queueId: raw.queue_id };
+  const raw = data as { name: string; position: number; queue_id: string; code: string };
+  return { name: raw.name, position: raw.position, queueId: raw.queue_id, code: raw.code };
+}
+
+// Public (no login): leave the queue with the code this phone kept. Not while
+// on a court or in Up Next. `refunded` = the court fee given back (0 once they
+// played a game).
+export async function leaveQueue(code: string): Promise<{ name: string; refunded: number }> {
+  const { data, error } = await supabase.rpc("leave_queue", { p_code: code });
+  if (error) throw error;
+  return data as { name: string; refunded: number };
 }

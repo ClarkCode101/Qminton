@@ -1,14 +1,14 @@
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CheckInPage } from "@/pages/check-in-page";
-import { checkIn } from "@/services/check-in";
+import { checkIn, leaveQueue } from "@/services/check-in";
 import { getDisplay, type DisplayData } from "@/services/display";
 import { cancelSignup, getSignupPage, signUp, type SignupPage } from "@/services/signups";
 import { renderApp } from "@/test/render-app";
 
 // Never talk to the real Supabase in tests.
-vi.mock("@/services/check-in", () => ({ checkIn: vi.fn() }));
+vi.mock("@/services/check-in", () => ({ checkIn: vi.fn(), leaveQueue: vi.fn() }));
 vi.mock("@/services/signups", () => ({ getSignupPage: vi.fn(), signUp: vi.fn(), cancelSignup: vi.fn() }));
 vi.mock("@/services/display", () => ({ getDisplay: vi.fn() }));
 
@@ -67,13 +67,42 @@ const plannedPage: SignupPage = {
 };
 
 describe("player self check-in page (live session)", () => {
+  // A tiny fake of the server: players still in the queue, by their leave code.
+  // get_signup's "mine" = the phone's codes that are still in it.
+  let inQueue: Map<string, string>;
+  let isOpen: boolean;
+
   // Block body: a function returned from beforeEach would run as cleanup.
   beforeEach(() => {
     window.localStorage.clear();
-    vi.mocked(getSignupPage).mockReset().mockResolvedValue(livePage);
+    inQueue = new Map();
+    isOpen = true;
+    vi.mocked(getSignupPage)
+      .mockReset()
+      .mockImplementation(async (_token, codes = []) => ({
+        ...livePage,
+        isOpen,
+        mine: codes.filter((code) => inQueue.has(code)).map((code) => ({ code, name: inQueue.get(code) ?? "" })),
+      }));
     vi.mocked(getDisplay).mockReset().mockResolvedValue(display);
     vi.mocked(checkIn).mockReset();
+    vi.mocked(leaveQueue).mockReset();
   });
+
+  function joinsAs(name: string, code: string, position = 12) {
+    vi.mocked(checkIn).mockImplementation(async () => {
+      inQueue.set(code, name);
+      return { name, position, queueId: "q1", code };
+    });
+  }
+
+  async function join(name: string, skill = "Beginner") {
+    fireEvent.change(await screen.findByLabelText("Your name"), { target: { value: name } });
+    fireEvent.click(screen.getByRole("radio", { name: skill }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Join" }));
+    });
+  }
 
   it("shows the courts only after tapping View courts, and Join the queue goes back", async () => {
     renderApp(routes, "/join/abc");
@@ -102,7 +131,7 @@ describe("player self check-in page (live session)", () => {
   });
 
   it("joins with a name and a skill, then shows the spot in line", async () => {
-    vi.mocked(checkIn).mockResolvedValue({ name: "Ana", position: 12, queueId: "q1" });
+    joinsAs("Ana", "code-ana");
     renderApp(routes, "/join/abc");
 
     expect(await screen.findByRole("heading", { name: "Saturday Session" })).toBeInTheDocument();
@@ -124,6 +153,96 @@ describe("player self check-in page (live session)", () => {
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(within(courts).getByText("Ana")).toHaveClass("font-bold");
     expect(within(courts).getByText("Faye")).not.toHaveClass("font-bold");
+  });
+
+  it("remembers on this phone who joined, so a refresh shows You're in instead of the form", async () => {
+    joinsAs("Ana", "code-ana");
+    renderApp(routes, "/join/abc");
+    await join("Ana");
+    expect(await screen.findByText("Welcome, Ana!")).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem("qminton:check-ins:abc") ?? "[]")).toMatchObject([{ name: "Ana", code: "code-ana" }]);
+
+    // Open the link again (refresh): the server is asked about this phone's code.
+    cleanup();
+    renderApp(routes, "/join/abc");
+    expect(await screen.findByText("You're in")).toBeInTheDocument();
+    expect(getSignupPage).toHaveBeenLastCalledWith("abc", ["code-ana"]);
+    expect(screen.getByText("✓ Ana")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
+
+    // Still bold on the courts after the refresh.
+    fireEvent.click(screen.getByRole("button", { name: "View courts" }));
+    const courts = await screen.findByRole("region", { name: "Courts" });
+    expect(within(courts).getByText("Ana")).toHaveClass("font-bold");
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    // Add someone else → the form; Cancel → back to You're in.
+    fireEvent.click(await screen.findByRole("button", { name: "Add someone else" }));
+    expect(screen.getByLabelText("Your name")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByText("✓ Ana")).toBeInTheDocument();
+  });
+
+  it("doesn't offer Add someone else once check-in is closed (leaving still works)", async () => {
+    window.localStorage.setItem("qminton:check-ins:abc", JSON.stringify([{ name: "Ana", code: "code-ana", at: Date.now() }]));
+    inQueue.set("code-ana", "Ana");
+    isOpen = false;
+    renderApp(routes, "/join/abc");
+
+    expect(await screen.findByText("✓ Ana")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add someone else" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Leave queue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "View courts" })).toBeInTheDocument();
+  });
+
+  it("leaves the queue after confirming, and says if the court fee was taken off", async () => {
+    window.localStorage.setItem("qminton:check-ins:abc", JSON.stringify([{ name: "Ana", code: "code-ana", at: Date.now() }]));
+    inQueue.set("code-ana", "Ana");
+    vi.mocked(leaveQueue).mockImplementation(async (code) => {
+      inQueue.delete(code);
+      return { name: "Ana", refunded: 50 };
+    });
+    renderApp(routes, "/join/abc");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Leave queue" }));
+    // Asks first; "Stay" keeps the spot.
+    fireEvent.click(screen.getByRole("button", { name: "Stay" }));
+    expect(leaveQueue).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Leave queue" }));
+    expect(screen.getByText("Leave the queue, Ana?")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+    });
+
+    expect(leaveQueue).toHaveBeenCalledWith("code-ana");
+    expect(await screen.findByText("Ana left the queue. The ₱50 court fee was taken off.")).toBeInTheDocument();
+    // Nobody left from this phone: the form again, and the phone forgot the code.
+    expect(await screen.findByLabelText("Your name")).toBeInTheDocument();
+    expect(window.localStorage.getItem("qminton:check-ins:abc")).toBeNull();
+  });
+
+  it("shows why leaving was refused (e.g. already on a court)", async () => {
+    window.localStorage.setItem("qminton:check-ins:abc", JSON.stringify([{ name: "Ana", code: "code-ana", at: Date.now() }]));
+    inQueue.set("code-ana", "Ana");
+    vi.mocked(leaveQueue).mockRejectedValue({ code: "P0001", message: "You are on a court right now. Please tell the organizer." });
+    renderApp(routes, "/join/abc");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Leave queue" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("You are on a court right now.");
+    expect(window.localStorage.getItem("qminton:check-ins:abc")).not.toBeNull();
+  });
+
+  it("drops a player the organizer removed (the server no longer lists the code)", async () => {
+    window.localStorage.setItem("qminton:check-ins:abc", JSON.stringify([{ name: "Ana", code: "code-ana", at: Date.now() }]));
+    renderApp(routes, "/join/abc");
+
+    // Not in the queue any more: the form, not "You're in".
+    expect(await screen.findByLabelText("Your name")).toBeInTheDocument();
+    expect(screen.queryByText("✓ Ana")).not.toBeInTheDocument();
   });
 
   it("shows the database message, e.g. a name already in the queue", async () => {
