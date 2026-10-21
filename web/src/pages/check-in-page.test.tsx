@@ -3,12 +3,48 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CheckInPage } from "@/pages/check-in-page";
 import { checkIn } from "@/services/check-in";
+import { getDisplay, type DisplayData } from "@/services/display";
 import { cancelSignup, getSignupPage, signUp, type SignupPage } from "@/services/signups";
 import { renderApp } from "@/test/render-app";
 
 // Never talk to the real Supabase in tests.
 vi.mock("@/services/check-in", () => ({ checkIn: vi.fn() }));
 vi.mock("@/services/signups", () => ({ getSignupPage: vi.fn(), signUp: vi.fn(), cancelSignup: vi.fn() }));
+vi.mock("@/services/display", () => ({ getDisplay: vi.fn() }));
+
+const display: DisplayData = {
+  name: "Saturday Session",
+  gameMode: "doubles",
+  courtCount: 2,
+  courts: [
+    {
+      courtNo: 1,
+      startedAt: "2026-10-21T10:00:00Z",
+      team1: [
+        { id: 1, name: "Ben" },
+        { id: 2, name: "Carl" },
+      ],
+      team2: [
+        { id: 3, name: "Dan" },
+        { id: 4, name: "Eli" },
+      ],
+    },
+  ],
+  upNext: [
+    {
+      position: 1,
+      team1: [
+        { id: 5, name: "Ana" },
+        { id: 6, name: "Faye" },
+      ],
+      team2: [
+        { id: 7, name: "Gil" },
+        { id: 8, name: "Hans" },
+      ],
+    },
+  ],
+  queuedCount: 3,
+};
 
 const routes = [{ path: "/join/:token", element: <CheckInPage /> }];
 const livePage: SignupPage = {
@@ -35,7 +71,22 @@ describe("player self check-in page (live session)", () => {
   beforeEach(() => {
     window.localStorage.clear();
     vi.mocked(getSignupPage).mockReset().mockResolvedValue(livePage);
+    vi.mocked(getDisplay).mockReset().mockResolvedValue(display);
     vi.mocked(checkIn).mockReset();
+  });
+
+  it("shows the courts and Up Next under the form (one QR for joining and watching)", async () => {
+    renderApp(routes, "/join/abc");
+
+    const courts = await screen.findByRole("region", { name: "Courts" });
+    expect(getDisplay).toHaveBeenCalledWith("q1");
+    expect(within(courts).getByText("Court 1")).toBeInTheDocument();
+    expect(within(courts).getByText("Ben")).toBeInTheDocument();
+    expect(within(courts).getByText("Free")).toBeInTheDocument(); // court 2
+    expect(within(courts).getByText("#1")).toBeInTheDocument();
+    expect(within(courts).getByText("+2 more waiting")).toBeInTheDocument();
+    expect(within(courts).getByRole("link", { name: "Open full display" })).toHaveAttribute("href", "/queue/q1/display");
+    expect(screen.getByLabelText("Your name")).toBeInTheDocument();
   });
 
   it("joins with a name and a skill, then shows the spot in line", async () => {
@@ -55,7 +106,10 @@ describe("player self check-in page (live session)", () => {
     expect(checkIn).toHaveBeenCalledWith("abc", { name: "Ana", skill: "intermediate" });
     expect(await screen.findByText("Welcome, Ana!")).toBeInTheDocument();
     expect(screen.getByText("#12")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Watch the courts" })).toHaveAttribute("href", "/queue/q1/display");
+    // Their name is bold on the courts list (here: in Up Next).
+    const courts = await screen.findByRole("region", { name: "Courts" });
+    expect(within(courts).getByText("Ana")).toHaveClass("font-bold");
+    expect(within(courts).getByText("Faye")).not.toHaveClass("font-bold");
   });
 
   it("shows the database message, e.g. a name already in the queue", async () => {
@@ -80,6 +134,8 @@ describe("player self check-in page (live session)", () => {
 
     expect(await screen.findByText("Check-in is closed")).toBeInTheDocument();
     expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument();
+    // The courts are still there to watch.
+    expect(await screen.findByRole("region", { name: "Courts" })).toBeInTheDocument();
   });
 
   it("says when the link is no longer valid", async () => {
@@ -94,6 +150,7 @@ describe("sign-up page (planned session)", () => {
   beforeEach(() => {
     window.localStorage.clear();
     vi.mocked(getSignupPage).mockReset().mockResolvedValue(plannedPage);
+    vi.mocked(getDisplay).mockReset().mockResolvedValue(display);
     vi.mocked(signUp).mockReset();
     vi.mocked(cancelSignup).mockReset();
     vi.mocked(checkIn).mockReset();
@@ -108,6 +165,9 @@ describe("sign-up page (planned session)", () => {
     expect(within(going).getByText("Ana")).toBeInTheDocument();
     expect(within(going).getByText("Ben")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Going (2)" })).toBeInTheDocument();
+    // No games yet: no courts.
+    expect(screen.queryByRole("region", { name: "Courts" })).not.toBeInTheDocument();
+    expect(getDisplay).not.toHaveBeenCalled();
   });
 
   it("signs up, keeps the cancel code on this phone, and can cancel", async () => {

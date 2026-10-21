@@ -282,6 +282,14 @@ right) **without animation**, so both were thrown away and the screen stays as c
   "Scan to join" + status pill ("Check-in is open / closed"), the QR (200px, faded while closed) with one
   caption line, and small links "Open/Close check-in" · "Copy link" · "New code". The printed link, the
   explanation lines and the big buttons are gone. Test checks the link through Copy link. Tests: 179.
+- **One QR for joining and watching** (owner, 2026-10-21): the join page (`/join/:token`) of a **live**
+  session shows the courts under the form (`features/display/live-courts.tsx`: a phone-sized list, Court N
+  + teams or "Free", Up next #1–3, "+N more waiting", "Open full display"). Also after joining (the
+  "Watch the courts" button is gone; names joined from this phone are bold on the list) and when check-in
+  is closed (the "Try again" button is gone: the page updates live). Not on planned sessions (no games yet).
+  No SQL: uses the public `get_display`; the page's one live listener reloads both (`useDisplayQuery` =
+  the display data without its own Realtime channel). The Display link still can't add players.
+  Tests: 180.
 
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.

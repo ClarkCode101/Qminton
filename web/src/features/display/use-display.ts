@@ -14,7 +14,13 @@ export function useDisplay(queueId: string) {
   useQueueLiveUpdates(queueId, () => {
     void queryClient.invalidateQueries({ queryKey: displayKeys.detail(queueId) });
   });
-  return useQuery({ queryKey: displayKeys.detail(queueId), queryFn: () => getDisplay(queueId) });
+  return useDisplayQuery(queueId);
+}
+
+// The same data without its own live connection, for a page that already
+// listens to the queue (the join page reloads it from its own listener).
+export function useDisplayQuery(queueId: string) {
+  return useQuery({ queryKey: displayKeys.detail(queueId), queryFn: () => getDisplay(queueId), enabled: queueId !== "" });
 }
 
 // Courts 1..court_count, filled in with the matches being played.

@@ -1,15 +1,16 @@
-import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 
 import { LoadError } from "@/components/load-error";
 import { QmintonMark } from "@/components/qminton-logo";
+import { LiveCourts } from "@/features/display/live-courts";
+import { displayKeys } from "@/features/display/use-display";
 import { MAX_PLAYER_NAME_LENGTH } from "@/features/players/bulk-names";
 import { SkillSegmented } from "@/features/players/skill-picker";
 import { useQueueLiveUpdates } from "@/hooks/use-queue-live-updates";
 import { formatCurrency, formatSessionDate, gameModeLabel } from "@/lib/format";
 import { readMySignups, writeMySignups } from "@/lib/my-signups";
-import { getQueueDisplayPath } from "@/lib/routes";
 import { checkIn, type CheckInResult } from "@/services/check-in";
 import { toUserMessage } from "@/services/errors";
 import type { SkillLevel } from "@/services/players";
@@ -34,8 +35,13 @@ export function CheckInPage() {
     queryFn: () => getSignupPage(token, codes),
     placeholderData: keepPreviousData,
   });
-  // The list updates live as others sign up or cancel.
-  useQueueLiveUpdates(infoQuery.data?.queueId ?? "", () => void infoQuery.refetch());
+  // The list (and the courts, once live) update as others sign up, cancel or play.
+  const queryClient = useQueryClient();
+  const queueId = infoQuery.data?.queueId ?? "";
+  useQueueLiveUpdates(queueId, () => {
+    void infoQuery.refetch();
+    void queryClient.invalidateQueries({ queryKey: displayKeys.detail(queueId) });
+  });
 
   const saveMine = (next: MySignup[]) => {
     writeMySignups(token, next);
@@ -66,7 +72,7 @@ export function CheckInPage() {
   if (info.status === "planned") {
     return <SignupView token={token} info={info} mySignups={mySignups} onMineChange={saveMine} onChanged={() => void infoQuery.refetch()} />;
   }
-  return <CheckInView token={token} info={info} onRetry={() => void infoQuery.refetch()} />;
+  return <CheckInView token={token} info={info} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -237,57 +243,50 @@ function SignupForm({
 }
 
 // ---------------------------------------------------------------------------
-// Live session: self check-in (as before)
+// Live session: self check-in, with the courts under it (one QR for joining
+// and for watching; owner's request 2026-10-21).
 // ---------------------------------------------------------------------------
-function CheckInView({ token, info, onRetry }: { token: string; info: SignupPage; onRetry: () => void }) {
+function CheckInView({ token, info }: { token: string; info: SignupPage }) {
   const ids = useId();
   const [name, setName] = useState("");
   const [skill, setSkill] = useState<SkillLevel | null>(null);
   const [joined, setJoined] = useState<CheckInResult | null>(null);
+  // Everyone joined from this phone, shown in bold on the courts.
+  const [joinedNames, setJoinedNames] = useState<string[]>([]);
   const join = useMutation({ mutationFn: () => checkIn(token, { name: name.trim(), skill: skill ?? "beginner" }) });
+  const courts = <LiveCourts queueId={info.queueId} highlight={joinedNames} />;
 
   if (joined) {
     return (
-      <Screen>
+      <Screen below={courts}>
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600">You're in</p>
         <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">Welcome, {joined.name}!</h1>
         <p className="mt-2 text-sm text-slate-600">
-          You're <span className="font-semibold text-slate-900">#{joined.position}</span> in line for {info.queueName}. The organizer
-          will call you to a court.
+          You're <span className="font-semibold text-slate-900">#{joined.position}</span> in line for {info.queueName}. Watch for
+          your name below.
         </p>
-        <div className="mt-6 flex flex-col gap-2">
-          <Link
-            to={getQueueDisplayPath(joined.queueId)}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
-          >
-            Watch the courts
-          </Link>
-          <button
-            type="button"
-            onClick={() => {
-              setJoined(null);
-              setName("");
-              setSkill(null);
-              join.reset();
-            }}
-            className={secondaryButtonClass}
-          >
-            Add someone else
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setJoined(null);
+            setName("");
+            setSkill(null);
+            join.reset();
+          }}
+          className={`mt-6 ${secondaryButtonClass}`}
+        >
+          Add someone else
+        </button>
       </Screen>
     );
   }
 
   if (!info.isOpen) {
     return (
-      <Screen>
+      <Screen below={courts}>
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">{info.queueName}</p>
         <h1 className="mt-1 text-xl font-black tracking-tight text-slate-900">Check-in is closed</h1>
-        <p className="mt-2 text-sm text-slate-500">Please ask the organizer to open check-in, then try again.</p>
-        <button type="button" onClick={onRetry} className={`mt-6 ${secondaryButtonClass}`}>
-          Try again
-        </button>
+        <p className="mt-2 text-sm text-slate-500">Ask the organizer if you still need to join.</p>
       </Screen>
     );
   }
@@ -297,7 +296,7 @@ function CheckInView({ token, info, onRetry }: { token: string; info: SignupPage
   const canJoin = trimmed.length > 0 && !nameError && skill !== null && !join.isPending;
 
   return (
-    <Screen>
+    <Screen below={courts}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">Join the queue</p>
       <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900">{info.queueName}</h1>
 
@@ -307,7 +306,12 @@ function CheckInView({ token, info, onRetry }: { token: string; info: SignupPage
         onSubmit={(event) => {
           event.preventDefault();
           if (!canJoin) return;
-          join.mutate(undefined, { onSuccess: setJoined });
+          join.mutate(undefined, {
+            onSuccess: (result) => {
+              setJoined(result);
+              setJoinedNames((names) => [...names, result.name]);
+            },
+          });
         }}
       >
         <NameField
@@ -373,7 +377,8 @@ function NameField({
   );
 }
 
-function Screen({ children }: { children: ReactNode }) {
+// `below` = a second card under the main one (the live courts).
+function Screen({ children, below }: { children: ReactNode; below?: ReactNode }) {
   return (
     <div className="flex min-h-screen items-start justify-center bg-[radial-gradient(circle_at_top,#dbeafe,#f8fafc_35%,#eef6ff)] px-4 py-10 sm:items-center">
       <div className="w-full max-w-sm">
@@ -381,6 +386,7 @@ function Screen({ children }: { children: ReactNode }) {
           <QmintonMark size={48} />
         </div>
         <div className="rounded-[28px] border border-sky-200 bg-white p-6 shadow-sm">{children}</div>
+        {below && <div className="mt-4">{below}</div>}
       </div>
     </div>
   );
