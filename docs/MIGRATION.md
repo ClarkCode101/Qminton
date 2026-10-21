@@ -345,6 +345,9 @@ right) **without animation**, so both were thrown away and the screen stays as c
   = Open display + **Show QR code** (dialog: big QR, link, Copy link, Open display), the step 11 version
   again (`display-qr.tsx` + its test, `getQueueDisplayUrl` restored). The display itself has no QR.
   Tests: 188.
+- **Sign-up page "Going" list numbering** (owner: looked broken with ~50 people): the two columns now read
+  top to bottom (CSS `columns-2`: 1–25 left, 26–49 right) instead of across (a column read 1, 3, 5…);
+  number column a bit wider for 3 digits. Checked at 390px with 49 names.
 
 ### ❓ Waiting on the owner
 Owner pushes (navbar labels + never-repeat-teammates), tests on the deployed site. Then: Billing tab review or step 13.

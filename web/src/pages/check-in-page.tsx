@@ -164,10 +164,12 @@ function SignupView({
         {info.going.length === 0 ? (
           <p className="mt-2 text-sm text-slate-500">No one yet. Be the first!</p>
         ) : (
-          <ol className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-sm text-slate-700 min-[360px]:grid-cols-2" aria-label="Going">
+          // Two columns read top to bottom (1–25 left, 26–49 right), not across:
+          // across, a column read 1, 3, 5… and looked broken (owner).
+          <ol className="mt-2 columns-1 gap-x-4 text-sm text-slate-700 min-[360px]:columns-2" aria-label="Going">
             {info.going.map((name, index) => (
-              <li key={`${name}-${index}`} className="flex min-w-0 gap-2">
-                <span className="w-5 shrink-0 text-right text-xs tabular-nums leading-5 text-slate-400">{index + 1}</span>
+              <li key={`${name}-${index}`} className="mb-1 flex min-w-0 break-inside-avoid gap-2">
+                <span className="w-6 shrink-0 text-right text-xs tabular-nums leading-5 text-slate-400">{index + 1}</span>
                 <span className="truncate">{name}</span>
               </li>
             ))}
